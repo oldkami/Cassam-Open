@@ -57,6 +57,7 @@ desktop.ini
 $RECYCLE.BIN/
 
 # Legacy SVN checkouts — READ-ONLY references for migration, NOT tracked by modern git
+Cassam/                          # legacy VB.NET 3.5 POS solution (with .svn/)
 Cassam ProductShare/
 Cassam ProductShare/2/
 Clientes/
@@ -65,6 +66,10 @@ Licencias temporales/
 Proyectos Auxiliares/
 software auxiliar/
 DBDesignerFork-1.5-bin-i386-win32-beta5/
+
+# Agent / editor metadata (not source of truth)
+.atl/
+.claude/
 
 # Subversion metadata anywhere
 .svn/
