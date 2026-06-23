@@ -56,8 +56,8 @@ Thumbs.db
 desktop.ini
 $RECYCLE.BIN/
 
-# Legacy SVN checkouts — READ-ONLY references for migration, NOT tracked by modern git
-Cassam/                          # legacy VB.NET 3.5 POS solution (with .svn/)
+# Legacy SVN checkouts — READ-ONLY references for migration, NOT tracked by modern git.
+Cassam/
 Cassam ProductShare/
 Cassam ProductShare/2/
 Clientes/
