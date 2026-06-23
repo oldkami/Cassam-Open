@@ -1,0 +1,83 @@
+# Build output
+bin/
+obj/
+out/
+
+# .NET user-specific
+*.user
+*.suo
+*.userprefs
+*.cachefile
+*.swp
+.vs/
+.vscode/
+
+# Rider / VS Code / Visual Studio
+.idea/
+.vscode/
+.vs/
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+*.lock.json
+!project.assets.json
+!**/packages.lock.json
+**/wwwroot/dist/
+
+# Test results / coverage
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+*.dll
+*.pdb
+coverage.xml
+coverage.json
+coverage.cobertura.xml
+
+# Local dev secrets (NEVER commit these)
+appsettings.Development.json
+appsettings.Local.json
+appsettings.*.Local.json
+secrets.json
+*.pfx
+*.p12
+*.key
+.env
+.env.local
+.env.*.local
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# Legacy SVN checkouts — READ-ONLY references for migration, NOT tracked by modern git
+Cassam ProductShare/
+Cassam ProductShare/2/
+Clientes/
+Licencia/
+Licencias temporales/
+Proyectos Auxiliares/
+software auxiliar/
+DBDesignerFork-1.5-bin-i386-win32-beta5/
+
+# Subversion metadata anywhere
+.svn/
+_svn/
+CVS/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.orig
