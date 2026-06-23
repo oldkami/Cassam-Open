@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/Core/">
+    <Project Path="src/Core/Cassam.Core.Audit/Cassam.Core.Audit.csproj" />
+    <Project Path="src/Core/Cassam.Core.Domain/Cassam.Core.Domain.csproj" />
+    <Project Path="src/Core/Cassam.Core.Persistence/Cassam.Core.Persistence.csproj" />
+    <Project Path="src/Core/Cassam.Core.Tenancy/Cassam.Core.Tenancy.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Cassam.Core.Tests/Cassam.Core.Tests.csproj" />
+  </Folder>
+</Solution>
