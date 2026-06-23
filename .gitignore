@@ -71,6 +71,9 @@ DBDesignerFork-1.5-bin-i386-win32-beta5/
 .atl/
 .claude/
 
+# SDD artifacts — orchestrator-managed, tracked separately in a future PR
+openspec/
+
 # Subversion metadata anywhere
 .svn/
 _svn/
