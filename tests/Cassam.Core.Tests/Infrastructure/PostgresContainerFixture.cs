@@ -68,6 +68,33 @@ public sealed class PostgresContainerFixture : IAsyncLifetime
             .WithPassword("cassam_test")
             .WithCleanUp(true)
             .WithLabel("cassam-test", "true")
+            // Bypass the docker-entrypoint.sh script that the
+            // official postgres image runs. The entrypoint sets
+            // fsync=off and synchronous_commit=off when the data
+            // directory is on tmpfs (which Testcontainers' anonymous
+            // volumes use), but those values violate REQ-CORE-13
+            // for a fiscal system. Skipping the entrypoint lets us
+            // run the postgres binary directly with the safety
+            // GUCs we want — at the cost of having to drive initdb
+            // ourselves via the postgres -D <dir> initdb path,
+            // which the Testcontainers.Pg database here pre-creates
+            // through WithDatabase + WithPassword env vars.
+            //
+            // To keep this PR's diff tractable, we instead pass the
+            // desired GUCs through WithCommand and accept that the
+            // entrypoint's check may override them on tmpfs. The
+            // PostgresSafetyDefaultsTests below catch deviations and
+            // force the operator to either:
+            //   (a) use a non-tmpfs data directory in production
+            //   (b) set the GUCs in postgresql.conf (which the
+            //       entrypoint honors for non-tmpfs cases)
+            .WithCommand(
+                "-c", "fsync=on",
+                "-c", "full_page_writes=on",
+                "-c", "synchronous_commit=on",
+                "-c", "wal_level=replica",
+                "-c", "checkpoint_timeout=15min",
+                "-c", "max_wal_size=2GB")
             .Build();
 
         // StartAsync can take 5-15 s on first run (image pull).
