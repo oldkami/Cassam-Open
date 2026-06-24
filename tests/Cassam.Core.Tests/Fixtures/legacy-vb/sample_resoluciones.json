@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "1.0",
+  "generatedFrom": "Cassam/CassamProductShare/CapaDatos/DatoDian.vb",
+  "generatedAt": "2026-06-24",
+  "description": "Three representative DIAN resoluciones (one active, one near expiry, one exhausted). Each has the legacy 'dato_dian' row shape; modern Resolucion entity maps these directly.",
+  "regimenEnum": ["COMUN", "SIMPLIFICADO", "ESPECIAL"],
+  "estadoLegacy": ["ACTIVA", "VENCIDA", "AGOTADA", "BORRADOR"],
+  "resoluciones": [
+    {
+      "idLegacy": 501,
+      "numeroresolucion": "18764000001234",
+      "prefijo": "FE",
+      "numeroinicial": 1,
+      "numerofinal": 5000,
+      "numeroactual": 1247,
+      "estado": "ACTIVA",
+      "fecha": "2026-01-15",
+      "fechavencimiento": "2028-01-15",
+      "regimen": "COMUN",
+      "contador_compra": 0,
+      "contador_venta": 1247,
+      "documentType": "FE_VENTA",
+      "notes": "Active resolución for FE_Venta with ~75% range remaining. Real production shape."
+    },
+    {
+      "idLegacy": 502,
+      "numeroresolucion": "18764000001235",
+      "prefijo": "POS",
+      "numeroinicial": 1,
+      "numerofinal": 100000,
+      "numeroactual": 99872,
+      "estado": "ACTIVA",
+      "fecha": "2025-06-01",
+      "fechavencimiento": "2026-07-15",
+      "regimen": "COMUN",
+      "contador_compra": 0,
+      "contador_venta": 99872,
+      "documentType": "DEE_POS",
+      "notes": "Active DEE_POS resolución — used for high-volume POS tickets. Near exhaustion (99872/100000 = 99.87%); 30-day expiry warning will fire per SCN-CORE-06."
+    },
+    {
+      "idLegacy": 503,
+      "numeroresolucion": "18764000001001",
+      "prefijo": "NC",
+      "numeroinicial": 1,
+      "numerofinal": 500,
+      "numeroactual": 500,
+      "estado": "AGOTADA",
+      "fecha": "2024-03-01",
+      "fechavencimiento": "2026-03-01",
+      "regimen": "SIMPLIFICADO",
+      "contador_compra": 0,
+      "contador_venta": 500,
+      "documentType": "NOTA_CREDITO",
+      "notes": "Exhausted Nota Crédito range (numeroactual >= numerofinal). Per SCN-CORE-07, dispatcher must skip and request a new authorization."
+    }
+  ]
+}

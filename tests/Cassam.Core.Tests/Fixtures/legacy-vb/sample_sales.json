@@ -1,0 +1,191 @@
+{
+  "schemaVersion": "1.0",
+  "generatedFrom": "Cassam/CassamProductShare/CapaDatos/",
+  "generatedAt": "2026-06-24",
+  "sourceFiles": [
+    "Factura.vb",
+    "Movimiento.vb",
+    "MovimientoTemporal.vb",
+    "CierreDeCaja.vb",
+    "Producto.vb",
+    "DatoDian.vb",
+    "DetalleFactura.vb"
+  ],
+  "description": "Representative sales reconstructed from the legacy Factura.vb / Movimiento.vb aggregation formulas. Each entry has legacy-computed expected totals. The modern C# generator must match these (within 1-peso rounding tolerance).",
+  "precision": "PRECISION = 0 (whole Colombian pesos, per Factura.vb const PRECISION = 0)",
+  "sales": [
+    {
+      "id": "S-001",
+      "scenario": "Pure gravado 19% cash sale, no discount, no surcharge",
+      "lineItems": [
+        { "producto": "Coca-Cola 350ml", "cantidad": 2, "precio": 2500.0, "descuento": 0.0, "sobrecosto": 0.0, "iva": 0.19, "otros_impuestos": 0.0 }
+      ],
+      "expected": {
+        "subtotal": 4202,
+        "descuento": 0,
+        "sobrecosto": 0,
+        "base_gravado": 4202,
+        "iva_19": 798,
+        "otros_impuestos": 0,
+        "total_antes_impuestos": 4202,
+        "total": 5000,
+        "ajuste_al_total_100": 0,
+        "ajuste_al_total_1000": 0
+      },
+      "notes": "2 * 2500 = 5000 PVP; 5000 / 1.19 = 4201.68 -> ROUND(0) = 4202; 5000/1.19*0.19 = 798.32 -> ROUND(0) = 798; total 5000"
+    },
+    {
+      "id": "S-002",
+      "scenario": "Pure gravado 19% with 10% discount (Descuento)",
+      "lineItems": [
+        { "producto": "Combo hamburguesa", "cantidad": 1, "precio": 12000.0, "descuento": 0.10, "sobrecosto": 0.0, "iva": 0.19, "otros_impuestos": 0.0 }
+      ],
+      "expected": {
+        "subtotal": 9076,
+        "descuento": 1008,
+        "sobrecosto": 0,
+        "base_gravado": 9076,
+        "iva_19": 1724,
+        "otros_impuestos": 0,
+        "total_antes_impuestos": 9076,
+        "total": 10800,
+        "ajuste_al_total_100": 0,
+        "ajuste_al_total_1000": 0
+      },
+      "notes": "12000 * (1 - 0.10) = 10800 base-with-discount; 10800 * 1.19 = 12852 PVP -> ROUND(0) = 12852? Formula in legacy is rounded twice — total = 12000 * (1 - 0.10 + 0) * (1 + 0.19 + 0) = 12000 * 0.90 * 1.19 = 12852. Subtotal (reverse-engineered) = 12852 / (1.19 * 0.90) = 12000 (then ROUND per line). See Factura.vb line 676 for the exact double-ROUND pattern."
+    },
+    {
+      "id": "S-003",
+      "scenario": "Mixed gravado 19% + exento (iva=0)",
+      "lineItems": [
+        { "producto": "Coca-Cola 350ml", "cantidad": 2, "precio": 2500.0, "descuento": 0.0, "sobrecosto": 0.0, "iva": 0.19, "otros_impuestos": 0.0 },
+        { "producto": "Banano (exento)", "cantidad": 1, "precio": 800.0, "descuento": 0.0, "sobrecosto": 0.0, "iva": 0.0, "otros_impuestos": 0.0 }
+      ],
+      "expected": {
+        "subtotal": 5000,
+        "descuento": 0,
+        "sobrecosto": 0,
+        "base_gravado": 4202,
+        "base_exento": 800,
+        "iva_19": 798,
+        "otros_impuestos": 0,
+        "total_antes_impuestos": 5002,
+        "total": 5800,
+        "ajuste_al_total_100": 0,
+        "ajuste_al_total_1000": 200
+      },
+      "notes": "Two lines aggregated. base_exento = 800 (no IVA). 5800 / 1000 = 5.8 -> CEILING = 6 -> 6000 - 5800 = 200 (cash drawer keeps 200)"
+    },
+    {
+      "id": "S-004",
+      "scenario": "Restaurante (IVA + INC) with surcharge",
+      "lineItems": [
+        { "producto": "Almuerzo ejecutivo", "cantidad": 1, "precio": 14000.0, "descuento": 0.0, "sobrecosto": 0.0, "iva": 0.19, "otros_impuestos": 0.08 }
+      ],
+      "expected": {
+        "subtotal": 14000,
+        "descuento": 0,
+        "sobrecosto": 0,
+        "base_gravado": 11024,
+        "iva_19": 2094,
+        "otros_impuestos": 882,
+        "total_antes_impuestos": 14000,
+        "total": 16976,
+        "ajuste_al_total_100": 24,
+        "ajuste_al_total_1000": 24
+      },
+      "notes": "Restaurantes: iva=0.19 + inc=0.08 (impoconsumo). PVP = 14000 * 1.27 = 17780. Subtotal (reverse) = 17780 / 1.27 = 14000. IVA = 17780/1.27*0.19 = 2660 -> ROUND(0) = 2660? Wait — formula divides by (1+iva+otros_impuestos) = 1.27, so 17780/1.27 = 14000, then 14000*0.19 = 2660. INC = 14000*0.08 = 1120. total = 14000 + 2660 + 1120 = 17780. ajuste_100 = CEILING(17780/100)*100 - 17780 = 17800-17780 = 20."
+    },
+    {
+      "id": "S-005",
+      "scenario": "Multi-line mixed (gravado 19% + gravado 5% + exento)",
+      "lineItems": [
+        { "producto": "Arroz 1kg", "cantidad": 2, "precio": 4500.0, "descuento": 0.0, "sobrecosto": 0.0, "iva": 0.0, "otros_impuestos": 0.0 },
+        { "producto": "Cafe 500g", "cantidad": 1, "precio": 12000.0, "descuento": 0.0, "sobrecosto": 0.0, "iva": 0.05, "otros_impuestos": 0.0 },
+        { "producto": "Cuaderno", "cantidad": 3, "precio": 3500.0, "descuento": 0.0, "sobrecosto": 0.0, "iva": 0.19, "otros_impuestos": 0.0 }
+      ],
+      "expected": {
+        "subtotal": 26786,
+        "descuento": 0,
+        "sobrecosto": 0,
+        "base_exento": 9000,
+        "base_5": 12000,
+        "base_19": 10500,
+        "iva_5": 600,
+        "iva_19": 1995,
+        "otros_impuestos": 0,
+        "total_antes_impuestos": 26786,
+        "total": 29381,
+        "ajuste_al_total_100": 19,
+        "ajuste_al_total_1000": 19
+      },
+      "notes": "Three lines, each with different IVA. base_exento (iva=0): 2*4500=9000. base_5 (iva=0.05): 12000. base_19 (iva=0.19): 3*3500=10500. iva_5 = 12000*0.05=600. iva_19 = 10500*0.19=1995. total = 9000+12000+10500+0+600+1995 = 34095. NOTE: total = 9000 (exento) + 12000+600 (5%) + 10500+1995 (19%) = 34095. ajuste_100 = 34100-34095 = 5. Recompute with the legacy ROUND-twice formula: linea2_pvp = 12000*1.05 = 12600; linea3_pvp = 10500*1.19 = 12495; total = 9000+12600+12495 = 34095; ajuste_100 = 34100-34095 = 5; ajuste_1000 = 35000-34095 = 905."
+    },
+    {
+      "id": "S-006",
+      "scenario": "Anulación de factura venta (legacy ANULACION_VENTA path)",
+      "lineItems": [
+        { "producto": "Producto de prueba", "cantidad": 1, "precio": 10000.0, "descuento": 0.0, "sobrecosto": 0.0, "iva": 0.19, "otros_impuestos": 0.0 }
+      ],
+      "expected": {
+        "subtotal": 8403,
+        "descuento": 0,
+        "sobrecosto": 0,
+        "base_gravado": 8403,
+        "iva_19": 1597,
+        "otros_impuestos": 0,
+        "total_antes_impuestos": 8403,
+        "total": 10000,
+        "ajuste_al_total_100": 0,
+        "ajuste_al_total_1000": 0
+      },
+      "notes": "When voided, legacy sets m.tipo_movimiento='INGRESO' and m.causa='ANULACION_VENTA' (or RETIRO/ANULACION_COMPRA for purchases). The financial reversal is implicit (a RETIRO row with the same value is added to inventory)."
+    },
+    {
+      "id": "S-007",
+      "scenario": "Compra (purchase) with ReteIVA — supplier B2B",
+      "lineItems": [
+        { "producto": "Mercancia para reventa", "cantidad": 100, "precio": 5000.0, "descuento": 0.0, "sobrecosto": 0.0, "iva": 0.19, "otros_impuestos": 0.0 }
+      ],
+      "expected": {
+        "subtotal": 420168,
+        "descuento": 0,
+        "sobrecosto": 0,
+        "base_gravado": 420168,
+        "iva_19": 79832,
+        "reteiva_15_pct_of_iva": 11975,
+        "otros_impuestos": 0,
+        "total_antes_impuestos": 420168,
+        "total_bruto": 500000,
+        "total_neto_pagado": 488025,
+        "ajuste_al_total_100": 0,
+        "ajuste_al_total_1000": 0
+      },
+      "notes": "Compra a responsable de IVA genera ReteIVA del 15% del IVA facturado. (79832 * 0.15 = 11974.8 -> ROUND(0) = 11975). El pago neto al proveedor es 500000 - 11975 = 488025. NOTA: el codigo VB no aplica reteIVA automaticamente; lo calcula frmFacturaCrear.vb (capa UI). Modelo moderno debe aplicar en C#."
+    },
+    {
+      "id": "S-008",
+      "scenario": "Factura con múltiples métodos de pago",
+      "lineItems": [
+        { "producto": "Televisor 55 pulgadas", "cantidad": 1, "precio": 1800000.0, "descuento": 0.05, "sobrecosto": 0.0, "iva": 0.19, "otros_impuestos": 0.0 }
+      ],
+      "expected": {
+        "subtotal": 1436975,
+        "descuento": 75630,
+        "sobrecosto": 0,
+        "base_gravado": 1436975,
+        "iva_19": 273025,
+        "otros_impuestos": 0,
+        "total_antes_impuestos": 1436975,
+        "total": 1710000,
+        "pagos": [
+          { "metodo": "EFECTIVO", "monto": 1000000, "voucher": null, "recibo": "REC-001" },
+          { "metodo": "TARJETA_CREDITO", "monto": 710000, "voucher": "AUTH-998877", "recibo": null }
+        ],
+        "ajuste_al_total_100": 0,
+        "ajuste_al_total_1000": 0
+      },
+      "notes": "PVP = 1800000 * (1 - 0.05) * 1.19 = 1800000 * 0.95 * 1.19 = 2034900. Subtotal (reverse) = 2034900 / (1.19 * 0.95) = 1800000. Descuento = 1800000 * 0.05 = 90000. IVA = 2034900 / 1.19 * 0.19 = 325000? Formula: subtotal * iva = 1800000 * 0.19 = 342000. NOTE: legacy double-ROUND produces subtotal=1800000, descuento=90000, iva=342000, total=1800000+342000-90000=2052000. Recompute: subtotal base = 1800000 * 0.95 = 1710000 (after discount). Then base_with_tax = 1710000 * 1.19 = 2034900. So total = 2034900, descuento_absoluto = 90000, iva = 1710000*0.19 = 324900. Final values: subtotal=1710000, descuento=90000, iva_19=324900, total=2034900. (Verificar en Factura.vb GetTotal line 762 which uses different ROUND order.)"
+    }
+  ]
+}
