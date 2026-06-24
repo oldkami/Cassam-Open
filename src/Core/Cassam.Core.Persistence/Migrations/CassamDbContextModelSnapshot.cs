@@ -463,6 +463,10 @@ namespace Cassam.Core.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("resolucion_id");
 
+                    b.Property<DateTime?>("RetentionLockedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("retention_locked_at");
+
                     b.Property<Guid?>("SaleId")
                         .HasColumnType("uuid")
                         .HasColumnName("sale_id");
@@ -974,6 +978,10 @@ namespace Cassam.Core.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
                     b.Property<string>("LegalName")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -1014,9 +1022,9 @@ namespace Cassam.Core.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_tenants");
 
-                    b.HasIndex("Nit")
+                    b.HasIndex("Nit", "DeletedAt")
                         .IsUnique()
-                        .HasDatabaseName("ix_tenants_nit");
+                        .HasDatabaseName("ix_tenants_nit_deleted_at");
 
                     b.ToTable("tenants", (string)null);
                 });

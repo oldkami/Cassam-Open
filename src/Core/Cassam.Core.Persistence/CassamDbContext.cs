@@ -113,10 +113,16 @@ public class CassamDbContext : DbContext
             entity.Property(t => t.Nit).HasMaxLength(20).IsRequired();
             entity.Property(t => t.SubscriptionTier).HasConversion<string>().HasMaxLength(16);
             entity.Property(t => t.Status).HasConversion<string>().HasMaxLength(16);
+            entity.Property(t => t.DeletedAt);
 
             // (Nit) uniqueness is enforced globally; tenants are the
             // root of tenancy, so no tenant_id prefix is needed.
-            entity.HasIndex(t => t.Nit).IsUnique();
+            // The composite index below lets the soft-delete re-
+            // registration check (WHERE deleted_at IS NULL) use an
+            // index-only scan.
+            entity.HasIndex(t => new { t.Nit, t.DeletedAt })
+                  .HasDatabaseName("ix_tenants_nit_deleted_at")
+                  .IsUnique();
 
             entity.Property(t => t.Version).IsConcurrencyToken();
         });
@@ -422,6 +428,7 @@ public class CassamDbContext : DbContext
             entity.Property(d => d.Estado).HasConversion<string>().HasMaxLength(32);
             entity.Property(d => d.TransmittedResponseCode).HasMaxLength(64);
             entity.Property(d => d.TransmittedResponseMessage).HasMaxLength(2000);
+            entity.Property(d => d.RetentionLockedAt);
 
             entity.Property(d => d.Version).IsConcurrencyToken();
 

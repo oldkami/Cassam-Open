@@ -86,6 +86,17 @@ public class DocumentoElectronico : Entity, ISoftDeletable, ITenantScoped
     /// <summary>DIAN Application Response message — populated on rejection / pending for operator display.</summary>
     public string? TransmittedResponseMessage { get; set; }
 
+    /// <summary>
+    /// UTC timestamp the document became retention-locked. Set by
+    /// <c>TenantLifecycleService.EnforceFiscalRetentionAsync</c> when
+    /// the owning tenant's <c>deleted_at</c> is older than 5 years.
+    /// Once set, a PostgreSQL trigger denies UPDATE on this row —
+    /// even from a DBA session — so the fiscal record stays byte-
+    /// identical for the regulatory retention window. Null while
+    /// the document is mutable.
+    /// </summary>
+    public DateTime? RetentionLockedAt { get; set; }
+
     /// <inheritdoc />
     public DateTime? DeletedAt { get; set; }
 }

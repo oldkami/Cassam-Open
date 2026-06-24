@@ -13,9 +13,17 @@ namespace Cassam.Core.Domain.Entities;
 /// Note: <see cref="Tenant"/> is intentionally NOT
 /// <see cref="ISoftDeletable"/> — it is the tenancy root. Deletion is
 /// modeled via the <see cref="TenantStatus.Deleted"/> terminal status
-/// to preserve fiscal history for the regulatory retention window
-/// (5 years default) per <c>cloud-saas-multi-tenant</c> REQ-MT-05
-/// and SCN-CORE-13.
+/// AND the <see cref="DeletedAt"/> timestamp, which together preserve
+/// fiscal history for the regulatory retention window (5 years default)
+/// per <c>cloud-saas-multi-tenant</c> REQ-MT-05 and SCN-CORE-13.
+///
+/// <para>
+/// <see cref="DeletedAt"/> is separate from <see cref="Entity.UpdatedAt"/>
+/// because it has different semantics: it is the moment the tenant
+/// transitioned to <see cref="TenantStatus.Deleted"/> and is the
+/// anchor for the 5-year fiscal retention lock enforced by the
+/// <c>documentos_electronicos_retention_lock</c> trigger.
+/// </para>
 /// </summary>
 public class Tenant : Entity
 {
@@ -38,6 +46,17 @@ public class Tenant : Entity
 
     /// <summary>Lifecycle status.</summary>
     public TenantStatus Status { get; set; } = TenantStatus.Trial;
+
+    /// <summary>
+    /// UTC timestamp the tenant transitioned to
+    /// <see cref="TenantStatus.Deleted"/>. Null for active tenants.
+    /// The 5-year fiscal retention lock activates
+    /// <c>deleted_at + interval '5 years'</c> — after which
+    /// <c>documentos_electronicos</c> UPDATE is denied by the
+    /// retention-lock trigger emitted in the
+    /// <c>TenantDeletedAt</c> migration.
+    /// </summary>
+    public DateTime? DeletedAt { get; set; }
 
     /// <summary>
     /// Per-tenant DIAN transmission feature flag (REQ-MT-08). When
