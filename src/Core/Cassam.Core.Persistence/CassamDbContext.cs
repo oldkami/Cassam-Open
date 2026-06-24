@@ -81,6 +81,24 @@ public class CassamDbContext : DbContext
     /// <summary>cash_sessions.</summary>
     public DbSet<CashSession> CashSessions => Set<CashSession>();
 
+    /// <summary>DIAN-issued numbering-range authorizations.</summary>
+    public DbSet<Resolucion> Resoluciones => Set<Resolucion>();
+
+    /// <summary>X.509 signing certificates.</summary>
+    public DbSet<Certificado> Certificados => Set<Certificado>();
+
+    /// <summary>DIAN-issued software technical keys (Clave Técnica de Software).</summary>
+    public DbSet<SoftwareTechnicalKey> SoftwareTechnicalKeys => Set<SoftwareTechnicalKey>();
+
+    /// <summary>Generated fiscal documents (DEE POS / FE Venta / NC / ND).</summary>
+    public DbSet<DocumentoElectronico> DocumentosElectronicos => Set<DocumentoElectronico>();
+
+    /// <summary>Pending DIAN transmissions awaiting drain.</summary>
+    public DbSet<ContingencyQueue> ContingencyQueue => Set<ContingencyQueue>();
+
+    /// <summary>Append-only audit log of fiscal mutations.</summary>
+    public DbSet<AuditLog> AuditLog => Set<AuditLog>();
+
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -284,6 +302,223 @@ public class CassamDbContext : DbContext
                   .HasDatabaseName("ix_cash_sessions_tenant_id_opened_by_user_id");
 
             entity.HasQueryFilter(cs => cs.DeletedAt == null);
+        });
+
+        // ---- Resolucion -------------------------------------------------
+        // DIAN-issued numbering-range authorization (REQ-CORE-06).
+        modelBuilder.Entity<Resolucion>(entity =>
+        {
+            entity.HasKey(r => r.Id);
+
+            entity.Property(r => r.TenantId).IsRequired();
+            entity.Property(r => r.DocumentType).HasConversion<string>().HasMaxLength(16);
+            entity.Property(r => r.RangeStart).IsRequired();
+            entity.Property(r => r.RangeEnd).IsRequired();
+            entity.Property(r => r.CurrentNumber).IsRequired();
+            entity.Property(r => r.ExpirationDate).IsRequired();
+            entity.Property(r => r.SoftwareTechnicalKeyId).IsRequired();
+            entity.Property(r => r.Status).HasConversion<string>().HasMaxLength(16);
+            entity.Property(r => r.Prefix).HasMaxLength(10);
+
+            entity.Property(r => r.Version).IsConcurrencyToken();
+
+            // The dispatcher always queries "active resolución for
+            // document type T" — composite (tenant_id, status) leads that path.
+            entity.HasIndex(r => new { r.TenantId, r.DocumentType, r.Status })
+                  .HasDatabaseName("ix_resoluciones_tenant_id_document_type_status");
+
+            // Composite (tenant_id, id) covering index per DD-05.
+            entity.HasIndex(r => new { r.TenantId, r.Id })
+                  .HasDatabaseName("ix_resoluciones_tenant_id_id");
+
+            // Uniqueness: a given DIAN autorización cannot be registered twice
+            // for the same tenant / document type / prefix. Prefix is nullable
+            // and the unique index treats NULLs as distinct, which is the
+            // desired semantics here (two prefixless resoluciones on the
+            // same document type are differentiated by their range).
+            entity.HasIndex(r => new { r.TenantId, r.DocumentType, r.Prefix })
+                  .HasDatabaseName("ix_resoluciones_tenant_id_document_type_prefix")
+                  .IsUnique();
+
+            entity.HasQueryFilter(r => r.DeletedAt == null);
+        });
+
+        // ---- Certificado -----------------------------------------------
+        // X.509 signing certificate (REQ-CORE-07).
+        modelBuilder.Entity<Certificado>(entity =>
+        {
+            entity.HasKey(c => c.Id);
+
+            entity.Property(c => c.TenantId).IsRequired();
+            entity.Property(c => c.Subject).HasMaxLength(500).IsRequired();
+            entity.Property(c => c.Issuer).HasMaxLength(500).IsRequired();
+            entity.Property(c => c.Serial).HasMaxLength(100).IsRequired();
+            entity.Property(c => c.NotBefore).IsRequired();
+            entity.Property(c => c.NotAfter).IsRequired();
+            entity.Property(c => c.PfxPath).HasMaxLength(500);
+            entity.Property(c => c.CertStoreRef).HasMaxLength(200);
+            entity.Property(c => c.Status).HasConversion<string>().HasMaxLength(32);
+            entity.Property(c => c.PasswordHash).HasMaxLength(512);
+
+            entity.Property(c => c.Version).IsConcurrencyToken();
+
+            // The signer always looks up "active certificate for tenant T" —
+            // composite (tenant_id, status) leads that path.
+            entity.HasIndex(c => new { c.TenantId, c.Status })
+                  .HasDatabaseName("ix_certificados_tenant_id_status");
+
+            entity.HasIndex(c => new { c.TenantId, c.Id })
+                  .HasDatabaseName("ix_certificados_tenant_id_id");
+
+            // Serial is unique within a tenant — DIAN does not issue the
+            // same X.509 serial twice to the same NIT.
+            entity.HasIndex(c => new { c.TenantId, c.Serial })
+                  .HasDatabaseName("ix_certificados_tenant_id_serial")
+                  .IsUnique();
+
+            entity.HasQueryFilter(c => c.DeletedAt == null);
+        });
+
+        // ---- SoftwareTechnicalKey --------------------------------------
+        // DIAN-issued Clave Técnica de Software (REQ-CORE-06, design §4.2).
+        modelBuilder.Entity<SoftwareTechnicalKey>(entity =>
+        {
+            entity.HasKey(k => k.Id);
+
+            entity.Property(k => k.TenantId).IsRequired();
+            entity.Property(k => k.KeyValue).HasMaxLength(200).IsRequired();
+            entity.Property(k => k.IssuedByDian).IsRequired();
+            entity.Property(k => k.Active).IsRequired();
+            entity.Property(k => k.IssuedAt).IsRequired();
+            entity.Property(k => k.DeactivatedAt);
+
+            entity.Property(k => k.Version).IsConcurrencyToken();
+
+            // The dispatcher always queries "active technical key for tenant T".
+            entity.HasIndex(k => new { k.TenantId, k.Active })
+                  .HasDatabaseName("ix_software_technical_keys_tenant_id_active");
+
+            entity.HasIndex(k => new { k.TenantId, k.Id })
+                  .HasDatabaseName("ix_software_technical_keys_tenant_id_id");
+
+            entity.HasQueryFilter(k => k.DeletedAt == null);
+        });
+
+        // ---- DocumentoElectronico --------------------------------------
+        // The fiscal document (REQ-CORE-08, design DD-01). State machine
+        // enforcement is the domain layer's job in PR 2; the DB CHECK
+        // constraint lands in T1.08 / T1.11.
+        modelBuilder.Entity<DocumentoElectronico>(entity =>
+        {
+            entity.HasKey(d => d.Id);
+
+            entity.Property(d => d.TenantId).IsRequired();
+            entity.Property(d => d.DocumentType).HasConversion<string>().HasMaxLength(16);
+            entity.Property(d => d.Numero).IsRequired();
+            entity.Property(d => d.CufeOrCude).HasMaxLength(200);
+            entity.Property(d => d.XmlPayload).HasColumnType("text").IsRequired();
+            entity.Property(d => d.SignatureXml).HasColumnType("text");
+            entity.Property(d => d.PdfPath).HasMaxLength(500);
+            entity.Property(d => d.Estado).HasConversion<string>().HasMaxLength(32);
+            entity.Property(d => d.TransmittedResponseCode).HasMaxLength(64);
+            entity.Property(d => d.TransmittedResponseMessage).HasMaxLength(2000);
+
+            entity.Property(d => d.Version).IsConcurrencyToken();
+
+            // FK indexes — join performance for the high-frequency queries.
+            entity.HasIndex(d => d.SaleId)
+                  .HasDatabaseName("ix_documentos_electronicos_sale_id");
+
+            entity.HasIndex(d => d.ResolucionId)
+                  .HasDatabaseName("ix_documentos_electronicos_resolucion_id");
+
+            entity.HasIndex(d => d.CertificadoId)
+                  .HasDatabaseName("ix_documentos_electronicos_certificado_id");
+
+            entity.HasIndex(d => d.SoftwareTechnicalKeyId)
+                  .HasDatabaseName("ix_documentos_electronicos_software_technical_key_id");
+
+            // Self-reference: voided_by points to the NC that superseded this doc.
+            entity.HasIndex(d => d.VoidedBy)
+                  .HasDatabaseName("ix_documentos_electronicos_voided_by");
+
+            // The transmission worker queries "documents in this state, oldest first"
+            // — composite (tenant_id, estado, created_at) leads that path.
+            entity.HasIndex(d => new { d.TenantId, d.Estado, d.CreatedAt })
+                  .HasDatabaseName("ix_documentos_electronicos_tenant_id_estado_created_at");
+
+            // Per-document-type reports and the daily-X/Z report.
+            entity.HasIndex(d => new { d.TenantId, d.DocumentType, d.CreatedAt })
+                  .HasDatabaseName("ix_documentos_electronicos_tenant_id_document_type_created_at");
+
+            // Composite (tenant_id, id) covering index per DD-05.
+            entity.HasIndex(d => new { d.TenantId, d.Id })
+                  .HasDatabaseName("ix_documentos_electronicos_tenant_id_id");
+
+            entity.HasQueryFilter(d => d.DeletedAt == null);
+        });
+
+        // ---- ContingencyQueue ------------------------------------------
+        // Pending DIAN transmissions awaiting drain (design §2.2).
+        modelBuilder.Entity<ContingencyQueue>(entity =>
+        {
+            entity.HasKey(q => q.Id);
+
+            entity.Property(q => q.TenantId).IsRequired();
+            entity.Property(q => q.DocumentoElectronicoId).IsRequired();
+            entity.Property(q => q.QueuedAt).IsRequired();
+            entity.Property(q => q.RetryCount).IsRequired();
+            entity.Property(q => q.LastError).HasMaxLength(2000);
+            entity.Property(q => q.NextAttemptAt);
+            entity.Property(q => q.CompletedAt);
+
+            entity.Property(q => q.Version).IsConcurrencyToken();
+
+            // The drain worker pulls the oldest batch FIFO — composite
+            // (tenant_id, queued_at) leads that scan.
+            entity.HasIndex(q => new { q.TenantId, q.QueuedAt })
+                  .HasDatabaseName("ix_contingency_queue_tenant_id_queued_at");
+
+            // 1:1 with documento_electronico: a document can only sit in
+            // the queue once at a time. The unique index also doubles as
+            // the FK index.
+            entity.HasIndex(q => q.DocumentoElectronicoId)
+                  .HasDatabaseName("ix_contingency_queue_documento_electronico_id")
+                  .IsUnique();
+
+            entity.HasQueryFilter(q => q.DeletedAt == null);
+        });
+
+        // ---- AuditLog --------------------------------------------------
+        // Append-only audit trail (REQ-CORE-03 / SCN-CORE-03).
+        // Note: AuditLog is intentionally NOT soft-deletable (no query filter).
+        // The RLS DELETE denial + DB trigger ship in T1.11.
+        modelBuilder.Entity<AuditLog>(entity =>
+        {
+            entity.HasKey(a => a.Id);
+
+            entity.Property(a => a.TenantId).IsRequired();
+            entity.Property(a => a.EntityType).HasMaxLength(64).IsRequired();
+            entity.Property(a => a.Action).HasMaxLength(64).IsRequired();
+            entity.Property(a => a.BeforeState).HasMaxLength(32);
+            entity.Property(a => a.AfterState).HasMaxLength(32);
+            entity.Property(a => a.IpAddress).HasMaxLength(64);
+            entity.Property(a => a.OccurredAt).IsRequired();
+
+            entity.Property(a => a.Version).IsConcurrencyToken();
+
+            // Most-frequent query: "show me the audit trail for entity X".
+            entity.HasIndex(a => new { a.EntityType, a.EntityId })
+                  .HasDatabaseName("ix_audit_log_entity_type_entity_id");
+
+            // Per-tenant chronological audit view — the compliance officer's
+            // standard dashboard.
+            entity.HasIndex(a => new { a.TenantId, a.OccurredAt })
+                  .HasDatabaseName("ix_audit_log_tenant_id_occurred_at");
+
+            // Composite (tenant_id, id) covering index per DD-05.
+            entity.HasIndex(a => new { a.TenantId, a.Id })
+                  .HasDatabaseName("ix_audit_log_tenant_id_id");
         });
     }
 }
