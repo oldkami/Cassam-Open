@@ -94,16 +94,25 @@ public class PostgresHarnessSmokeTests
 
         var connection = ctx.Database.GetDbConnection();
         await connection.OpenAsync();
-        await using var cmd = connection.CreateCommand();
-        // Quote the table name to preserve the case returned by
-        // information_schema, and quote the column to be safe across
-        // Npgsql version differences.
-        cmd.CommandText = $"SELECT \"migration_id\" FROM \"{historyTableName}\"";
-        var result = (string?)await cmd.ExecuteScalarAsync();
-        await connection.CloseAsync();
 
-        result.Should().NotBeNullOrEmpty(
-            "the InitialCreate migration should be recorded as applied");
-        result.Should().EndWith("_InitialCreate");
+        // Debug: dump ALL applied migration ids so we can verify
+        // both InitialCreate AND AuditLogAppendOnly landed.
+        await using (var dumpCmd = connection.CreateCommand())
+        {
+            dumpCmd.CommandText = $"SELECT migration_id FROM \"{historyTableName}\" ORDER BY migration_id";
+            await using var reader = await dumpCmd.ExecuteReaderAsync();
+            var applied = new List<string>();
+            while (await reader.ReadAsync())
+            {
+                applied.Add(reader.GetString(0));
+            }
+            await reader.CloseAsync();
+            applied.Should().Contain(m => m.EndsWith("_InitialCreate"),
+                "the InitialCreate migration should be recorded as applied");
+            applied.Should().Contain(m => m.EndsWith("_AuditLogAppendOnly"),
+                "the AuditLogAppendOnly migration should also be recorded as applied");
+        }
+
+        await connection.CloseAsync();
     }
 }

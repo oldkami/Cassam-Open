@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Cassam.Core.Persistence.Migrations
 {
     [DbContext(typeof(CassamDbContext))]
-    [Migration("20260624055041_AuditLogAppendOnly")]
+    [Migration("20260624060015_AuditLogAppendOnly")]
     partial class AuditLogAppendOnly
     {
         /// <inheritdoc />

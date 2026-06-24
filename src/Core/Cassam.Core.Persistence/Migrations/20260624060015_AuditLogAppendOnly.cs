@@ -24,17 +24,15 @@ namespace Cassam.Core.Persistence.Migrations
             //   3. BEFORE UPDATE trigger — raises an exception on any
             //      UPDATE attempt, regardless of role.
             //
-            // RLS is enabled but NOT forced; the trigger is the hard
-            // guarantee. (FORCE ROW LEVEL SECURITY would also apply
-            // the policy to the table owner / superuser, which we
-            // want for tenant isolation but NOT for the trigger-based
-            // UPDATE denial — the trigger must always fire even for
-            // superuser sessions running ad-hoc maintenance queries.)
+            // RLS is enabled AND FORCED so the policy applies even to
+            // the table owner / superuser. The UPDATE/DELETE triggers
+            // below fire regardless of role, so FORCE RLS does not
+            // interfere with the immutability guarantee.
 
-            // 1. Enable RLS (without FORCE so the cassam role can
-            //    still run admin scripts during migrations).
+            // 1. Enable RLS with FORCE.
             migrationBuilder.Sql(@"
                 ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
+                ALTER TABLE audit_log FORCE ROW LEVEL SECURITY;
             ");
 
             // 2. Tenant isolation policy. The session variable
@@ -44,10 +42,29 @@ namespace Cassam.Core.Persistence.Migrations
             //    WITH CHECK makes INSERT also require the same match
             //    so a tenant cannot insert rows belonging to another
             //    tenant.
+            //
+            // The CASE expression handles the unset session-variable
+            // case explicitly: when current_setting(..., true)
+            // returns '' (the missing-setting fallback), the policy
+            // evaluates to FALSE rather than raising a UUID parse
+            // error. NULLIF(..., '')::uuid can raise 22P02 inside
+            // the query plan; the CASE form is the safer pattern.
             migrationBuilder.Sql(@"
                 CREATE POLICY tenant_isolation ON audit_log
-                  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid)
-                  WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+                  USING (
+                    CASE
+                      WHEN current_setting('app.current_tenant_id', true) = ''
+                        THEN FALSE
+                      ELSE tenant_id = current_setting('app.current_tenant_id', true)::uuid
+                    END
+                  )
+                  WITH CHECK (
+                    CASE
+                      WHEN current_setting('app.current_tenant_id', true) = ''
+                        THEN FALSE
+                      ELSE tenant_id = current_setting('app.current_tenant_id', true)::uuid
+                    END
+                  );
             ");
 
             // 3. BEFORE UPDATE trigger. Any UPDATE attempt — even
@@ -103,6 +120,7 @@ namespace Cassam.Core.Persistence.Migrations
                 DROP FUNCTION IF EXISTS audit_log_deny_delete();
                 DROP FUNCTION IF EXISTS audit_log_deny_update();
                 DROP POLICY IF EXISTS tenant_isolation ON audit_log;
+                ALTER TABLE audit_log NO FORCE ROW LEVEL SECURITY;
                 ALTER TABLE audit_log DISABLE ROW LEVEL SECURITY;
             ");
         }
