@@ -520,5 +520,176 @@ public class CassamDbContext : DbContext
             entity.HasIndex(a => new { a.TenantId, a.Id })
                   .HasDatabaseName("ix_audit_log_tenant_id_id");
         });
+
+        // ---- Foreign-key relationships ----------------------------------
+        // The entities intentionally do not expose navigation properties
+        // (pure POCO domain model — no behavior), so EF Core cannot infer
+        // FKs from `public Tenant Tenant { get; set; }` and they must be
+        // declared explicitly via the fluent API. Every FK below maps a
+        // scalar `*_id` column to the parent table's `id`; we set
+        // <c>OnDelete(Restrict)</c> on the tenant-scoped FKs because
+        // tenant rows are terminal in the tenancy hierarchy — historical
+        // fiscal data MUST survive tenant deletion (REQ-CORE-01 +
+        // SCN-CORE-13) — and on the parent-child FKs because cascading
+        // deletes in a fiscal system require an explicit operator
+        // action, not a side-effect of a referential cascade.
+        ConfigureForeignKeys(modelBuilder);
+    }
+
+    private static void ConfigureForeignKeys(ModelBuilder modelBuilder)
+    {
+        // ---- Tenant FKs (REQ-CORE-01) ----
+        // Every tenant-scoped table references tenants(id). OnDelete is
+        // Restrict because tenant deletion is operator-driven and must
+        // not cascade into fiscal history (SCN-CORE-13 retention).
+        modelBuilder.Entity<User>()
+            .HasOne<Tenant>()
+            .WithMany()
+            .HasForeignKey(u => u.TenantId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Product>()
+            .HasOne<Tenant>()
+            .WithMany()
+            .HasForeignKey(p => p.TenantId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Customer>()
+            .HasOne<Tenant>()
+            .WithMany()
+            .HasForeignKey(c => c.TenantId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Sale>()
+            .HasOne<Tenant>()
+            .WithMany()
+            .HasForeignKey(s => s.TenantId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<CashSession>()
+            .HasOne<Tenant>()
+            .WithMany()
+            .HasForeignKey(cs => cs.TenantId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Resolucion>()
+            .HasOne<Tenant>()
+            .WithMany()
+            .HasForeignKey(r => r.TenantId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Certificado>()
+            .HasOne<Tenant>()
+            .WithMany()
+            .HasForeignKey(c => c.TenantId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<SoftwareTechnicalKey>()
+            .HasOne<Tenant>()
+            .WithMany()
+            .HasForeignKey(k => k.TenantId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<DocumentoElectronico>()
+            .HasOne<Tenant>()
+            .WithMany()
+            .HasForeignKey(d => d.TenantId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ContingencyQueue>()
+            .HasOne<Tenant>()
+            .WithMany()
+            .HasForeignKey(q => q.TenantId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<AuditLog>()
+            .HasOne<Tenant>()
+            .WithMany()
+            .HasForeignKey(a => a.TenantId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // ---- Sale / CashSession relationships ----
+        modelBuilder.Entity<Sale>()
+            .HasOne<CashSession>()
+            .WithMany()
+            .HasForeignKey(s => s.CashSessionId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // ---- SaleLineItem children ----
+        // Line items are NOT soft-deletable; they belong to a Sale and
+        // share the Sale's lifetime. Restrict is still appropriate
+        // because a sale with line items cannot be deleted in this
+        // system (the line items carry fiscal detail).
+        modelBuilder.Entity<SaleLineItem>()
+            .HasOne<Sale>()
+            .WithMany()
+            .HasForeignKey(li => li.SaleId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<SaleLineItem>()
+            .HasOne<Product>()
+            .WithMany()
+            .HasForeignKey(li => li.ProductId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // ---- Payment children ----
+        modelBuilder.Entity<Payment>()
+            .HasOne<Sale>()
+            .WithMany()
+            .HasForeignKey(p => p.SaleId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Payment>()
+            .HasOne<CashSession>()
+            .WithMany()
+            .HasForeignKey(p => p.CashSessionId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // ---- Compliance relationships ----
+        modelBuilder.Entity<Resolucion>()
+            .HasOne<SoftwareTechnicalKey>()
+            .WithMany()
+            .HasForeignKey(r => r.SoftwareTechnicalKeyId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // ---- DocumentoElectronico fan-in ----
+        modelBuilder.Entity<DocumentoElectronico>()
+            .HasOne<Resolucion>()
+            .WithMany()
+            .HasForeignKey(d => d.ResolucionId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<DocumentoElectronico>()
+            .HasOne<Certificado>()
+            .WithMany()
+            .HasForeignKey(d => d.CertificadoId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<DocumentoElectronico>()
+            .HasOne<SoftwareTechnicalKey>()
+            .WithMany()
+            .HasForeignKey(d => d.SoftwareTechnicalKeyId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<DocumentoElectronico>()
+            .HasOne<Sale>()
+            .WithMany()
+            .HasForeignKey(d => d.SaleId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Self-reference: VoidedBy points to the NC that superseded
+        // this document (REQ-CORE-08 / design §DD-01).
+        modelBuilder.Entity<DocumentoElectronico>()
+            .HasOne<DocumentoElectronico>()
+            .WithMany()
+            .HasForeignKey(d => d.VoidedBy)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // ---- ContingencyQueue fan-in ----
+        modelBuilder.Entity<ContingencyQueue>()
+            .HasOne<DocumentoElectronico>()
+            .WithMany()
+            .HasForeignKey(q => q.DocumentoElectronicoId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
