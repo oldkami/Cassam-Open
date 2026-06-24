@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Cassam.Core.Domain\Cassam.Core.Domain.csproj" />
+    <ProjectReference Include="..\Cassam.Core.Persistence\Cassam.Core.Persistence.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
