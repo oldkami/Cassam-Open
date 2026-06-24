@@ -70,6 +70,18 @@ public class PostgresHarnessSmokeTests
                 .AnyAsync();
             exists.Should().BeTrue($"the migration must have created the {table} table");
         }
+
+        // Confirm the DocumentoElectronicoEstadoCheck migration
+        // landed (the CHECK constraint exists). This is the
+        // assertion that catches drift between the migration
+        // content and the applied schema.
+        var hasCheck = await ctx.Database
+            .SqlQueryRaw<int>(
+                "SELECT 1 AS \"Value\" FROM information_schema.check_constraints " +
+                "WHERE constraint_name = 'ck_documentos_estado_valid'")
+            .AnyAsync();
+        hasCheck.Should().BeTrue(
+            "the DocumentoElectronicoEstadoCheck migration should have created ck_documentos_estado_valid");
     }
 
     [Fact]
@@ -107,10 +119,13 @@ public class PostgresHarnessSmokeTests
                 applied.Add(reader.GetString(0));
             }
             await reader.CloseAsync();
+            Console.WriteLine($"[smoke] Applied migrations: {string.Join(", ", applied)}");
             applied.Should().Contain(m => m.EndsWith("_InitialCreate"),
                 "the InitialCreate migration should be recorded as applied");
             applied.Should().Contain(m => m.EndsWith("_AuditLogAppendOnly"),
                 "the AuditLogAppendOnly migration should also be recorded as applied");
+            applied.Should().Contain(m => m.EndsWith("_DocumentoElectronicoEstadoCheck"),
+                "the DocumentoElectronicoEstadoCheck migration should also be recorded as applied");
         }
 
         await connection.CloseAsync();
