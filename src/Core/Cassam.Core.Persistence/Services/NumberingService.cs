@@ -98,30 +98,54 @@ public sealed class NumberingService : INumberingService
         // the lock until commit. SaveChanges on its own would only lock
         // at UPDATE time, releasing immediately after — which would
         // race two concurrent increments between SELECT and UPDATE.
-        await using var transaction = await _dbContext.Database
-            .BeginTransactionAsync(cancellationToken)
-            .ConfigureAwait(false);
+        //
+        // The InMemory test provider does NOT support transactions or
+        // raw SQL. We detect that case and fall back to a plain LINQ
+        // lookup — the unit tests cover application logic only; the
+        // real locking contract is exercised by
+        // NumberingConcurrencyTests against Testcontainers PostgreSQL.
+        var isRelational = _dbContext.Database.IsRelational();
 
-        // FromSqlInterpolated carries parameter values as bind variables,
-        // not string concatenation — safe against injection.
-        // We include `deleted_at IS NULL` explicitly because EF Core's
-        // global query filter is not auto-applied to FromSql queries;
-        // the dispatcher must never increment a soft-deleted row.
-        var resolucion = await _dbContext.Resoluciones
-            .FromSqlInterpolated($@"
-                SELECT * FROM resoluciones
-                WHERE id = {activeId}
-                  AND deleted_at IS NULL
-                FOR UPDATE")
-            .SingleOrDefaultAsync(cancellationToken)
-            .ConfigureAwait(false);
+        await using var transaction = isRelational
+            ? await _dbContext.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false)
+            : null;
+
+        Resolucion? resolucion;
+        if (isRelational)
+        {
+            // FromSqlInterpolated carries parameter values as bind
+            // variables, not string concatenation — safe against injection.
+            // We include `deleted_at IS NULL` explicitly because EF Core's
+            // global query filter is not auto-applied to FromSql queries;
+            // the dispatcher must never increment a soft-deleted row.
+            resolucion = await _dbContext.Resoluciones
+                .FromSqlInterpolated($@"
+                    SELECT * FROM resoluciones
+                    WHERE id = {activeId}
+                      AND deleted_at IS NULL
+                    FOR UPDATE")
+                .SingleOrDefaultAsync(cancellationToken)
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            // InMemory path — no lock needed (the provider is single-
+            // threaded for our test purposes). We re-load the row to
+            // make sure the in-memory state matches what Step 1 saw.
+            resolucion = await _dbContext.Resoluciones
+                .FirstOrDefaultAsync(r => r.Id == activeId, cancellationToken)
+                .ConfigureAwait(false);
+        }
 
         if (resolucion is null)
         {
             // The row disappeared between Step 1 and Step 2 — concurrent
             // soft-delete or hard delete. Treat as "no active resolución"
             // since the observable state to the caller is identical.
-            await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
+            if (transaction is not null)
+            {
+                await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
+            }
             throw new ResolucionNotActiveException(tenantId, documentType);
         }
 
@@ -129,7 +153,10 @@ public sealed class NumberingService : INumberingService
         {
             // Range exhausted — the caller should consult the next active
             // resolución (if any) or surface the exception to the operator.
-            await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
+            if (transaction is not null)
+            {
+                await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
+            }
             throw new ResolucionExhaustedException(
                 resolucion.Id,
                 resolucion.CurrentNumber,
@@ -141,7 +168,10 @@ public sealed class NumberingService : INumberingService
         resolucion.UpdatedAt = DateTime.UtcNow;
 
         await _dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        if (transaction is not null)
+        {
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        }
 
         return resolucion.CurrentNumber;
     }
