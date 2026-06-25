@@ -1,0 +1,64 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!--
+      Android hardware-abstraction implementation of the interfaces
+      declared in Cassam.Ui.Hardware.Common.
+
+      TFM: net10.0-android — matches the Uno Platform 6 Android head
+      (`net10.0-android` API 36, see Cassam.Ui.csproj). The android
+      workload is already installed on the dev host per PR 6, so the
+      build verifies here.
+
+      What lives here (T2.05 per PR 7 user instructions; design §6.2
+      "Android" row):
+        - AndroidBarcodeScanner — USB-OTG HID (Android USB Host API,
+              `UsbManager`) + Bluetooth HID / SPP (Plugin.BLE). Most
+              retail Android scanners pair over Bluetooth (the
+              Android scanner market has converged on BT-SPP and
+              BT-HID).
+        - AndroidEscPosReceiptPrinter — BT SPP / BLE GATT write
+              characteristic (Plugin.BLE). BT is the common Android
+              path; USB-OTG is rare on Android POS tablets.
+        - AndroidBluetoothCashDrawer — kicks via the paired BT printer
+              (the standard "drawer piggy-backs on the printer RJ12
+              cable" wiring used by every mobile POS in LATAM).
+        - AndroidBluetoothPoleDisplay — BT serial (rare in retail but
+              declared for forward-compatibility, design §6.2 row 4).
+        - AndroidHardwareModule.AddAndroidHardware(services) — DI
+              extension.
+
+      Out of scope for PR 7 (deferred):
+        - Ambient-light sensor triggering HighContrastTheme at
+          > 25 000 lux (design §6.2 row 4 note). Lands with the
+          Android head's theme system in PR 8.
+        - USB-OTG ESC/POS printer path — same Plugin.BLE BT path
+          covers 99 % of Android retail in LATAM.
+
+      Risk acknowledgment (design §16 R-UI-06): Android BT pairing
+      UX varies by OEM (Samsung vs Xiaomi vs motorola). The HAL
+      abstracts pairing behind the IBarcodeScanner.StartAsync
+      surface; the actual pair-on-first-scan UI lands in the
+      cashier flow (PR 8).
+
+      Plugin.BLE is MIT-licensed — see THIRD-PARTY-NOTICES.md (TBD
+      in PR 8 alongside the WASM camera fallback that lands at the
+      same time).
+    -->
+    <TargetFramework>net10.0-android</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>Cassam.Ui.Hardware.Android</RootNamespace>
+    <AssemblyName>Cassam.Ui.Hardware.Android</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Cassam.Ui.Hardware.Common\Cassam.Ui.Hardware.Common.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Plugin.BLE" Version="3.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
+  </ItemGroup>
+
+</Project>
