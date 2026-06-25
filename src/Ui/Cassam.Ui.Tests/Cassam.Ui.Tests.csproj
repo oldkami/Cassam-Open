@@ -1,7 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <!--
+      Multi-target so we can compile both platform-neutral tests
+      (Mocks, DTOs, Stubs, Linux HAL contract) AND Windows-specific
+      HAL tests in one project. The CI matrix runs `net10.0` on
+      Linux/macOS runners and `net10.0-windows10.0.19041.0` on
+      Windows runners.
+    -->
+    <TargetFrameworks>net10.0;net10.0-windows10.0.19041.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
@@ -24,6 +31,25 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Cassam.Ui.Hardware.Common\Cassam.Ui.Hardware.Common.csproj" />
+  </ItemGroup>
+
+  <!--
+    PR 7 per-platform HAL test references. Each is gated on the
+    matching TFM so a CI build on Linux does not need to restore
+    the Windows + Android projects.
+  -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
+    <ProjectReference Include="..\Cassam.Ui.Hardware.Windows\Cassam.Ui.Hardware.Windows.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <!--
+      Linux HAL uses plain net10.0 (no platform-specific workload),
+      so we reference it from the platform-neutral test target.
+      Android is not tested here (no Android TFM in this multi-target
+      list) — see Cassam.Ui.Hardware.Android.Tests for the Android
+      coverage when station hardware is online (PR 8 follow-up).
+    -->
+    <ProjectReference Include="..\Cassam.Ui.Hardware.Linux\Cassam.Ui.Hardware.Linux.csproj" />
   </ItemGroup>
 
 </Project>
