@@ -1,0 +1,61 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!--
+      Linux hardware-abstraction implementation of the interfaces
+      declared in Cassam.Ui.Hardware.Common.
+
+      TFM: net10.0 (plain) — the implementations are platform-neutral
+      at the language level (SerialPort, TcpClient, Process). The
+      actual evdev / libusb / X11 / Wayland integration lives in a
+      Linux-only branch that is gated on `OperatingSystem.IsLinux()`
+      and throws PlatformNotSupportedException elsewhere.
+
+      Why plain net10.0 and not net10.0-linux:
+      - The Uno Platform 6 desktop head builds against plain net10.0
+        through Skia; a per-OS TFM would force every Linux desktop
+        station to install a workload we don't otherwise need.
+      - The Linux-only code paths here all gate at runtime via
+        OperatingSystem.IsLinux(); the build succeeds on Windows /
+        macOS hosts (PR 7 dev host is Windows) without taking a
+        Linux-specific dependency.
+
+      What lives here (T2.04 per PR 7 user instructions; design §6.2
+      "Linux (GTK)" row):
+        - LinuxBarcodeScanner       — pure-abstraction placeholder
+              that throws PlatformNotSupportedException on non-Linux
+              hosts. The full evdev / X11 / Wayland hook lives in
+              a follow-up PR once a Linux station is available for
+              QA (see Linux HAL README / §16 R-UI-03).
+        - LinuxEscPosReceiptPrinter — Serial + TcpClient LAN. Same
+              byte stream as Windows; identical surface so the
+              cashier flow is portable.
+        - LinuxPrinterKickedCashDrawer — RJ12 via printer (same
+              adapter pattern as Windows).
+        - LinuxSerialPoleDisplay    — same CD-7220 commands as
+              Windows (the device is the same regardless of host
+              OS).
+        - LinuxHardwareModule.AddLinuxHardware(services) — DI
+              extension.
+
+      Thread-safety / lifetime identical to the Windows variants.
+
+      Build verification on Windows host (2026-06-25): 0 errors.
+    -->
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>Cassam.Ui.Hardware.Linux</RootNamespace>
+    <AssemblyName>Cassam.Ui.Hardware.Linux</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Cassam.Ui.Hardware.Common\Cassam.Ui.Hardware.Common.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.IO.Ports" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
+  </ItemGroup>
+
+</Project>
