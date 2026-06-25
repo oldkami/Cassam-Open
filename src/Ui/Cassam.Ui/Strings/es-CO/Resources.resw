@@ -1,9 +1,106 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <resw xmlns="http://schemas.openxmlformats.org/officeDocument/2006/resx">
-  <!-- es-CO primary locale. Phase 2 (T2.10) expands this resw with the
-       full string set; the bootstrap keeps one entry so the localization
-       pipeline is wired from day one (REQ-UI-09, REQ-UI-10). -->
+  <!--
+    es-CO primary locale. PR 8 expanded this resw with the cashier-flow
+    string set (T2.08 + DD-09). The bootstrap keeps the AppName entry
+    so the localization pipeline stays wired from PR 7 (REQ-UI-09,
+    REQ-UI-10).
+  -->
   <data name="AppName" xml:space="preserve">
     <value>Cassam POS</value>
+  </data>
+
+  <!-- Cashier flow (T2.08) — header, cart, payment, buttons. -->
+  <data name="Cashier.Header.Title" xml:space="preserve">
+    <value>Caja</value>
+  </data>
+  <data name="Cashier.Header.Subtitle" xml:space="preserve">
+    <value>{0} — Estación {1}</value>
+  </data>
+  <data name="Cashier.Connectivity.Online" xml:space="preserve">
+    <value>En línea</value>
+  </data>
+  <data name="Cashier.Connectivity.Limited" xml:space="preserve">
+    <value>Conectividad limitada</value>
+  </data>
+  <data name="Cashier.Connectivity.Offline" xml:space="preserve">
+    <value>Sin conexión — ventas en cola</value>
+  </data>
+  <data name="Cashier.Dian.Ok" xml:space="preserve">
+    <value>DIAN ok</value>
+  </data>
+  <data name="Cashier.Dian.Contingency" xml:space="preserve">
+    <value>DIAN contingencia</value>
+  </data>
+  <data name="Cashier.Cart.Name" xml:space="preserve">
+    <value>Carrito de venta</value>
+  </data>
+  <data name="Cashier.Cart.Empty" xml:space="preserve">
+    <value>El carrito está vacío. Escanee un producto o use la búsqueda.</value>
+  </data>
+  <data name="Cashier.RemoveLine" xml:space="preserve">
+    <value>Quitar</value>
+  </data>
+
+  <!-- Payment panel. -->
+  <data name="Cashier.Payment.TotalLabel" xml:space="preserve">
+    <value>Total a pagar</value>
+  </data>
+  <data name="Cashier.Payment.Method" xml:space="preserve">
+    <value>Método de pago</value>
+  </data>
+  <data name="Cashier.Payment.Method.Cash" xml:space="preserve">
+    <value>Efectivo</value>
+  </data>
+  <data name="Cashier.Payment.Method.Card" xml:space="preserve">
+    <value>Tarjeta</value>
+  </data>
+  <data name="Cashier.Payment.Method.Transfer" xml:space="preserve">
+    <value>Transferencia</value>
+  </data>
+  <data name="Cashier.Payment.Method.Other" xml:space="preserve">
+    <value>Otro</value>
+  </data>
+  <data name="Cashier.Payment.TenderedLabel" xml:space="preserve">
+    <value>Recibido (COP)</value>
+  </data>
+  <data name="Cashier.Payment.ChangeLabel" xml:space="preserve">
+    <value>Cambio</value>
+  </data>
+
+  <!-- Receipt option. -->
+  <data name="Cashier.Receipt.Option" xml:space="preserve">
+    <value>Recibo</value>
+  </data>
+  <data name="Cashier.Receipt.Print" xml:space="preserve">
+    <value>Imprimir</value>
+  </data>
+  <data name="Cashier.Receipt.Email" xml:space="preserve">
+    <value>Email</value>
+  </data>
+  <data name="Cashier.Receipt.None" xml:space="preserve">
+    <value>Sin impresión</value>
+  </data>
+
+  <!-- Action buttons. -->
+  <data name="Cashier.Action.Void" xml:space="preserve">
+    <value>Cancelar venta (Esc)</value>
+  </data>
+  <data name="Cashier.Action.Complete" xml:space="preserve">
+    <value>Cobrar (F9)</value>
+  </data>
+
+  <!-- Status messages. -->
+  <data name="Cashier.Status.UnknownBarcode" xml:space="preserve">
+    <value>No se encontró el producto con código '{0}'.</value>
+  </data>
+  <data name="Cashier.Status.SaleComplete" xml:space="preserve">
+    <value>Venta registrada. Cambio: {0}</value>
+  </data>
+  <data name="Cashier.Status.SaleCancelled" xml:space="preserve">
+    <value>Venta cancelada.</value>
+  </data>
+  <data name="Cashier.Status.NoPrinterConfigured" xml:space="preserve">
+    <value>No hay impresora configurada para esta estación.</value>
   </data>
 </resw>
