@@ -1,0 +1,10 @@
+{
+  // To update Uno Platform, bump the Uno.Sdk version here.
+  // See https://aka.platform.uno/using-uno-sdk
+  "msbuild-sdks": {
+    "Uno.Sdk": "6.5.36"
+  },
+  "sdk": {
+    "allowPrerelease": false
+  }
+}

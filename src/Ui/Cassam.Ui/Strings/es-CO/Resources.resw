@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<resw xmlns="http://schemas.openxmlformats.org/officeDocument/2006/resx">
+  <!-- es-CO primary locale. Phase 2 (T2.10) expands this resw with the
+       full string set; the bootstrap keeps one entry so the localization
+       pipeline is wired from day one (REQ-UI-09, REQ-UI-10). -->
+  <data name="AppName" xml:space="preserve">
+    <value>Cassam POS</value>
+  </data>
+</resw>

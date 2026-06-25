@@ -1,0 +1,62 @@
+<Project Sdk="Uno.Sdk">
+  <PropertyGroup>
+    <!--
+      5 native heads via Uno Platform 6 Single-Project multi-target:
+        net10.0-android       → Android APK/AAB
+        net10.0-windows10.0   → Windows MSIX (WinUI 3 / WinAppSDK)
+        net10.0-browserwasm   → Web (WASM) static site
+        net10.0-desktop       → Skia Desktop (Windows + macOS + Linux X11/Framebuffer)
+
+      The base `net10.0` headless TFM is intentionally omitted — headless
+      unit tests target `Cassam.Ui.Hardware.Common` directly (it targets
+      plain `net10.0`).
+
+      PR 6 build status on the Windows build host (2026-06-24):
+        net10.0-desktop       — requires Skia Desktop runtime (built-in with Uno SDK)
+        net10.0-windows10.0   — requires Microsoft.WindowsAppSDK runtime
+        net10.0-browserwasm   — requires wasm-tools workload (Emscripten SDK)
+        net10.0-android       — requires Android SDK API 36 platform + workload
+      A full build runs on a proper CI matrix (windows-latest, ubuntu-latest,
+      macos-latest runners per design §14.3). The hardware-host validation
+      surface for PR 6 is the Cassam.Ui.Hardware.Common + Cassam.Ui.Tests
+      projects (both plain `net10.0`).
+
+      Single-Project rationale: Uno Platform 6 ships a "Single-Project
+      Multi-Target" mode that produces a single `.csproj` with multiple
+      `TargetFrameworks`. The `net10.0-desktop` TFM produces runnable
+      artifacts for Windows / macOS / Linux via `UseX11() / UseMacOS() /
+      UseWin32()` in the Desktop host builder. This satisfies REQ-UI-01
+      (single XAML codebase, 5 native platforms) with one project file
+      per head and the shared XAML living once at the root. The design
+      spec's "5 separate head projects" layout (design §2.3) is replaced
+      by this single-project structure to match modern Uno 6 conventions.
+    -->
+    <TargetFrameworks>net10.0-android;net10.0-windows10.0.26100;net10.0-browserwasm;net10.0-desktop</TargetFrameworks>
+
+    <OutputType>Exe</OutputType>
+    <UnoSingleProject>true</UnoSingleProject>
+    <UseAppHost>false</UseAppHost>
+
+    <!-- Display name -->
+    <ApplicationTitle>Cassam POS</ApplicationTitle>
+    <!-- App Identifier (Android package id, MSIX publisher, etc.) -->
+    <ApplicationId>co.cassam.pos</ApplicationId>
+    <!-- Versions -->
+    <ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>
+    <ApplicationVersion>1</ApplicationVersion>
+    <!-- Package Publisher -->
+    <ApplicationPublisher>Cassam SAS</ApplicationPublisher>
+    <!-- Package Description -->
+    <Description>Cassam modern POS — Phase 2 Uno Platform bootstrap.</Description>
+
+    <UnoFeatures>
+      Mvvm;
+      SkiaRenderer;
+    </UnoFeatures>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Cassam.Ui.Hardware.Common\Cassam.Ui.Hardware.Common.csproj" />
+  </ItemGroup>
+
+</Project>

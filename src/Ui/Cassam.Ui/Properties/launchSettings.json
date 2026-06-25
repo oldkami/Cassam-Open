@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "Cassam.Ui (Desktop)": {
+      "commandName": "Project",
+      "commandLineArgs": ""
+    },
+    "Cassam.Ui (WebAssembly)": {
+      "commandName": "Project",
+      "commandLineArgs": ""
+    }
+  }
+}

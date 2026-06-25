@@ -1,0 +1,14 @@
+<Project>
+  <PropertyGroup>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+
+    <!--
+      NU1507: ignore when CPM has multiple package sources.
+      NETSDK1201: ignore self-contained RID warnings (Uno head targets).
+      PRI257: ignore default en not in included resources (es-CO is primary).
+    -->
+    <NoWarn>$(NoWarn);NU1507;NETSDK1201;PRI257</NoWarn>
+  </PropertyGroup>
+</Project>

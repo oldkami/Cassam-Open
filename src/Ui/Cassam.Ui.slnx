@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/Ui/">
+    <Project Path="src/Ui/Cassam.Ui/Cassam.Ui.csproj" />
+    <Project Path="src/Ui/Cassam.Ui.Hardware.Common/Cassam.Ui.Hardware.Common.csproj" />
+  </Folder>
+  <Folder Name="/tests/Ui/">
+    <Project Path="src/Ui/Cassam.Ui.Tests/Cassam.Ui.Tests.csproj" />
+  </Folder>
+</Solution>
