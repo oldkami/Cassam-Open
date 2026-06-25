@@ -7,8 +7,50 @@
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
       mc:Ignorable="d"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+  <!--
+    PR 7 brand layout (design §17.1, question #1 RESOLVED 2026-06-24).
+
+    Top region renders the legacy Cassam logo (rasterized PNG carrying
+    the "CASSAM — FACTURACION E INVENTARIOS" wordmark) on the left and
+    the application title on the right. The remaining area below is
+    reserved for Phase 2 PR 8-10 UI (cashier / manager pages).
+
+    Layout choices:
+      * Horizontal StackPanel in row 0 — keeps the logo+title pinned
+        to the top regardless of the row 1 content's vertical anchor.
+      * Image uses `ms-appx:///Assets/logoCassamTransp.png` so the
+        transparent variant renders correctly on light + dark themes.
+      * TextBlock uses ThemeResource foreground so it adapts to the
+        user's current theme.
+      * Logo height fixed at 64 px — preserves the legacy aspect ratio
+        (≈ 740 × 224 px, so ~3.3:1). Width auto-scales.
+  -->
   <Grid>
-    <StackPanel HorizontalAlignment="Center"
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <StackPanel Grid.Row="0"
+                Orientation="Horizontal"
+                Margin="24,16,24,16"
+                Spacing="16"
+                VerticalAlignment="Center">
+      <Image Source="ms-appx:///Assets/logoCassamTransp.png"
+             Height="64"
+             Stretch="Uniform"
+             HorizontalAlignment="Left"
+             VerticalAlignment="Center"
+             AutomationProperties.Name="Cassam logo" />
+      <TextBlock Text="Cassam POS"
+                 FontSize="32"
+                 FontWeight="SemiBold"
+                 VerticalAlignment="Center"
+                 AutomationProperties.AutomationId="CassamAppTitle" />
+    </StackPanel>
+
+    <StackPanel Grid.Row="1"
+                HorizontalAlignment="Center"
                 VerticalAlignment="Center"
                 Spacing="12">
       <TextBlock x:Name="StatusText"

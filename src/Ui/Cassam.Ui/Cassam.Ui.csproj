@@ -59,4 +59,16 @@
     <ProjectReference Include="..\Cassam.Ui.Hardware.Common\Cassam.Ui.Hardware.Common.csproj" />
   </ItemGroup>
 
+  <!--
+    Brand assets shipped in PR 7 (design §17.1, question #1 RESOLVED).
+    Build action = Content + CopyToOutputDirectory keeps the legacy PNGs
+    at the package root so the XAML `ms-appx:///Assets/logoCassam.png`
+    reference resolves in every Uno head (WinUI 3, Android, WASM, Skia).
+  -->
+  <ItemGroup>
+    <Content Include="Assets\**\*.*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>
