@@ -50,6 +50,13 @@
     <LangVersion>latest</LangVersion>
     <RootNamespace>Cassam.Ui.Hardware.Android</RootNamespace>
     <AssemblyName>Cassam.Ui.Hardware.Android</AssemblyName>
+    <!--
+      CS0067 ("event never used") is suppressed here because the
+      BLE adapter's DeviceDiscovered event is part of the contract
+      surface but the real Plugin.BLE wiring lands in PR 9 / T2.09
+      when station hardware is online (R-UI-06 follow-up).
+    -->
+    <NoWarn>$(NoWarn);CS0067</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
