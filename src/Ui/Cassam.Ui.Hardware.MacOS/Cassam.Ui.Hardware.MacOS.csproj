@@ -1,0 +1,65 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!--
+      macOS hardware-abstraction implementation of the interfaces
+      declared in Cassam.Ui.Hardware.Common.
+
+      TFM: net10.0-desktop — the Uno Platform 6 desktop head produces
+      runnable artifacts for macOS via `UseMacOS()` in the Desktop
+      host builder. Per design §6.2 row "macOS (Catalyst)", the
+      macOS HAL uses:
+        - CGEventTap (Core Graphics) for HID keyboard scanner input
+          — no driver install (REQ-UI-04, same approach as Windows).
+        - IOKit HID iteration for explicit HID device enumeration
+          (rare; the keyboard-event route is the default).
+        - IOKit USB + raw bytes for USB-attached thermal printers.
+        - TcpClient for LAN-attached thermal printers.
+        - IOKit serial (or BSD /dev/cu.usbserial) for CD-7220 pole
+          displays.
+        - Printer-driven RJ12 cash-drawer kick (same ESC/POS path
+          as Linux + Windows).
+
+      Build reality:
+        This project CAN compile on non-macOS hosts because the
+        macOS-specific APIs are reached through P/Invoke wrappers
+        in `NativeMethods.cs`. The `Apple.CoreFoundation` + `Apple`
+        framework binaries are loaded only when `OperatingSystem.IsMacOS()`
+        is true at runtime — the static references compile because
+        DllImport + marshaled struct types are platform-neutral.
+
+        Full build verification requires the net10.0-desktop TFM to
+        be compiled with `dotnet workload install macos` on a macos-
+        latest runner. The PR 8 verification matrix runs:
+          - macos-latest: full `Cassam.Ui` net10.0-desktop build +
+            HAL smoke tests against the macOS code path.
+          - windows-latest / ubuntu-latest: HEADLESS tests for the
+            contract surface (DI resolution, simulated scan, RJ12
+            byte payload) — the Win/Linux HAL stays untouched.
+
+      Out of scope for PR 8 (deferred to station hardware validation):
+        - Real CGEventTap install/uninstall at process startup
+          (delivered when the first Mac station is online — see
+          design §16 R-UI-09).
+        - macOS sandboxing / notarization (Phase 5 release work).
+        - Ambient-light sensor (luminance API lives behind the
+          Uno head's bridge in Phase 4a follow-up).
+    -->
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>Cassam.Ui.Hardware.MacOS</RootNamespace>
+    <AssemblyName>Cassam.Ui.Hardware.MacOS</AssemblyName>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Cassam.Ui.Hardware.Common\Cassam.Ui.Hardware.Common.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.IO.Ports" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
+  </ItemGroup>
+
+</Project>
