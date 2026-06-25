@@ -2,6 +2,19 @@
   <Folder Name="/src/Ui/">
     <Project Path="Cassam.Ui/Cassam.Ui.csproj" />
     <Project Path="Cassam.Ui.Hardware.Common/Cassam.Ui.Hardware.Common.csproj" />
+    <!--
+      PR 7 per-platform Hardware Abstraction Layer implementations
+      (design §6.2):
+        - .Windows : net10.0-windows10.0.19041.0  (T2.03)
+        - .Linux   : net10.0                         (T2.04)
+        - .Android : net10.0-android                 (T2.05)
+      Each project implements the interfaces in Hardware.Common and
+      exposes an AddXxxHardware(IServiceCollection) extension that
+      App.xaml.cs calls inside the matching #if branch.
+    -->
+    <Project Path="Cassam.Ui.Hardware.Windows/Cassam.Ui.Hardware.Windows.csproj" />
+    <Project Path="Cassam.Ui.Hardware.Linux/Cassam.Ui.Hardware.Linux.csproj" />
+    <Project Path="Cassam.Ui.Hardware.Android/Cassam.Ui.Hardware.Android.csproj" />
   </Folder>
   <Folder Name="/tests/Ui/">
     <Project Path="Cassam.Ui.Tests/Cassam.Ui.Tests.csproj" />

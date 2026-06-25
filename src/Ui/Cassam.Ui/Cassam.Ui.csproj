@@ -60,6 +60,30 @@
   </ItemGroup>
 
   <!--
+    Per-platform HAL references (PR 7 — design §6.2, tasks T2.03..T2.05).
+    Each reference is gated on the matching TFM so MSBuild only resolves
+    the one that compiles for the current head. App.xaml.cs uses
+    `RegisterPerPlatformHardware(IServiceCollection)` to call the
+    right AddXxxHardware extension at runtime; the unused projects
+    are simply never compiled into the head's output.
+  -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0' OR '$(TargetFramework)' == 'net10.0-windows10.0.26100'">
+    <ProjectReference Include="..\Cassam.Ui.Hardware.Windows\Cassam.Ui.Hardware.Windows.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-android'">
+    <ProjectReference Include="..\Cassam.Ui.Hardware.Android\Cassam.Ui.Hardware.Android.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-desktop' OR '$(TargetFramework)' == 'net10.0'">
+    <!--
+      net10.0-desktop builds Linux + macOS + Windows Skia Desktop;
+      the Linux HAL is the closest match for the desktop head on
+      Linux. macOS uses the Mock fallback until PR 8 / T2.06
+      ships the real CGEventTap + IOKit HID iteration.
+    -->
+    <ProjectReference Include="..\Cassam.Ui.Hardware.Linux\Cassam.Ui.Hardware.Linux.csproj" />
+  </ItemGroup>
+
+  <!--
     Brand assets shipped in PR 7 (design §17.1, question #1 RESOLVED).
     Build action = Content + CopyToOutputDirectory keeps the legacy PNGs
     at the package root so the XAML `ms-appx:///Assets/logoCassam.png`

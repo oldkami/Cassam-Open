@@ -34,15 +34,6 @@ public partial class App : Application
             })
             .ConfigureServices(services =>
             {
-                // ---- Hardware abstraction layer (PR 6 — Mocks only) ----
-                // Per-platform implementations land in PR 8 (T2.05..T2.07).
-                // Phase 2 ships Mock implementations for testing without
-                // physical hardware (SCN-UI-04..06 mock paths).
-                services.AddSingleton<IBarcodeScanner, MockBarcodeScanner>();
-                services.AddSingleton<IReceiptPrinter, MockReceiptPrinter>();
-                services.AddSingleton<ICashDrawer, MockCashDrawer>();
-                services.AddSingleton<ICustomerPoleDisplay, MockCustomerPoleDisplay>();
-
                 // ---- DIAN / Sync stable seams (PR 6 — Stubs only) ----
                 // Stub providers return safe defaults so the UI is
                 // renderable end-to-end. Phase 4a (sync) and 4b (DIAN)
@@ -53,8 +44,45 @@ public partial class App : Application
 
                 // ---- Application root + entry VM ----
                 services.AddSingleton<ViewModels.MainViewModel>();
+
+                // ---- Per-platform HAL (PR 7 — design §6.2) ----
+                // The branch selects the matching AddXxxHardware
+                // extension at compile time. The fallback (no WINDOWS
+                // / LINUX / ANDROID symbol) is the Mock surface so
+                // the headless unit-test harness + the WASM head (PR 8)
+                // still resolve every HAL interface.
+                RegisterPerPlatformHardware(services);
             })
             .Build();
+    }
+
+    /// <summary>
+    /// Register the per-platform HAL implementation that matches the
+    /// current TFM. The Mock surface is registered LAST so it acts as
+    /// the fallback for any platform that does not yet have a real
+    /// implementation (WASM in PR 8, iOS, macOS before PR 8).
+    /// </summary>
+    private static void RegisterPerPlatformHardware(IServiceCollection services)
+    {
+#if WINDOWS
+        // T2.03 — Windows HID + ESC/POS over winspool / SerialPort / TcpClient.
+        global::Cassam.Ui.Hardware.Windows.WindowsHardwareModule.AddWindowsHardware(services);
+#elif ANDROID
+        // T2.05 — Android BT HID/SPP scanner + BT ESC/POS printer + BT cash drawer.
+        global::Cassam.Ui.Hardware.Android.AndroidHardwareModule.AddAndroidHardware(services);
+#elif LINUX
+        // T2.04 — Linux Serial + LAN ESC/POS + serial pole display.
+        // Barcode scanner is a placeholder until evdev / X11 / Wayland
+        // hook lands in a follow-up PR (design §16 R-UI-03).
+        global::Cassam.Ui.Hardware.Linux.LinuxHardwareModule.AddLinuxHardware(services);
+#else
+        // WASM (PR 8 / T2.07) + iOS (out of scope) + macOS (PR 8 / T2.06).
+        // Camera-only barcode + no printer / drawer / pole (REQ-UI-06).
+        services.AddSingleton<IBarcodeScanner, MockBarcodeScanner>();
+        services.AddSingleton<IReceiptPrinter, MockReceiptPrinter>();
+        services.AddSingleton<ICashDrawer, MockCashDrawer>();
+        services.AddSingleton<ICustomerPoleDisplay, MockCustomerPoleDisplay>();
+#endif
     }
 
     /// <summary>
@@ -86,7 +114,7 @@ public partial class App : Application
         if (rootFrame.Content == null)
         {
             // Single-page bootstrap. The cashier + manager flows land in
-            // PR 7 (T2.02) and PR 9 (T2.03 / T2.09); this PR ships only
+            // PR 8 (T2.02 + T2.03) and PR 9 (T2.09); this PR ships only
             // the shell + the byte-identical MainPage required by SCN-UI-01.
             rootFrame.Navigate(typeof(MainPage), args.Arguments);
         }
