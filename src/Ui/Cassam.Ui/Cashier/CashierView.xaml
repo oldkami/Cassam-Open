@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page x:Class="Cassam.Ui.Cashier.CashierView"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:local="using:Cassam.Ui.Hardware.Common.Cashier"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      mc:Ignorable="d"
+      Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+      AutomationProperties.Name="Caja registradora">
+  <!--
+    PR 8 cashier flow (T2.08, design §4.3, REQ-UI-02, REQ-UI-03
+    cashier DIAN display surface, REQ-UI-09 es-CO, SCN-UI-02 <5 s
+    benchmark, SCN-UI-07 offline indicator, SCN-UI-09 Humanizer
+    es-CO for receipts).
+
+    The View is a pure render of <see cref="CashierViewModel"/>;
+    the ViewModel itself lives in the platform-neutral
+    Cassam.Ui.Hardware.Common assembly so the unit tests can
+    exercise the full state machine without an Uno head.
+
+    Layout follows design §4.3 grid:
+      - Row 0: header (logo + cashier name + sync/DIAN banners).
+      - Row 1: status banner (last scan / no-product message).
+      - Row 2: cart ListView (left) + payment panel (right).
+      - Row 3: footer with action buttons (Cancel, Complete Sale).
+
+    Touch targets ≥44 dp on Android (SCN-UI-11). Buttons declare
+    MinHeight=44 so the Layoutlib TouchTargetSizeTests catch any
+    future regression where a button is sized smaller.
+
+    All user-visible strings are resource keys; the
+    es-CO Resources.resw is updated with the cashier-flow entries
+    in a separate work-unit commit.
+  -->
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <!-- Row 0: header. Logo + cashier + station + offline/DIAN banners. -->
+    <Grid Grid.Row="0"
+          Padding="24,16,24,16"
+          ColumnSpacing="16">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+
+      <Image Grid.Column="0"
+             Source="ms-appx:///Assets/logoCassamTransp.png"
+             Height="48"
+             Stretch="Uniform"
+             VerticalAlignment="Center"
+             AutomationProperties.Name="Cassam logo" />
+
+      <StackPanel Grid.Column="1"
+                  Orientation="Vertical"
+                  VerticalAlignment="Center"
+                  Spacing="2">
+        <TextBlock Text="Caja"
+                   FontSize="24"
+                   FontWeight="SemiBold"
+                   AutomationProperties.AutomationId="CashierHeaderTitle" />
+        <TextBlock FontSize="12"
+                   Opacity="0.7"
+                   AutomationProperties.AutomationId="CashierHeaderSubtitle">
+          <Run Text="{x:Bind ViewModel.CashierName, Mode=OneWay}" />
+          <Run Text=" — Estación " />
+          <Run Text="{x:Bind ViewModel.StationId, Mode=OneWay}" />
+        </TextBlock>
+      </StackPanel>
+
+      <!-- Sync / offline indicator (DD-10, SCN-UI-07) -->
+      <Border Grid.Column="2"
+              Background="Green"
+              CornerRadius="12"
+              Padding="12,4,12,4"
+              VerticalAlignment="Center"
+              AutomationProperties.Name="Indicador de conectividad">
+        <TextBlock Text="En línea"
+                   Foreground="White"
+                   FontSize="12" />
+      </Border>
+
+      <!-- DIAN contingency mode badge (REQ-UI-03) -->
+      <Border Grid.Column="3"
+              Background="OrangeRed"
+              CornerRadius="12"
+              Padding="12,4,12,4"
+              VerticalAlignment="Center"
+              AutomationProperties.Name="Indicador DIAN">
+        <TextBlock Text="DIAN ok"
+                   Foreground="White"
+                   FontSize="12" />
+      </Border>
+    </Grid>
+
+    <!-- Row 1: status banner (last scan / no-product message) -->
+    <Border Grid.Row="1"
+            Background="{ThemeResource SystemAccentColorLight3}"
+            Padding="24,8,24,8">
+      <TextBlock Text="{x:Bind ViewModel.StatusBanner, Mode=OneWay}"
+                 FontSize="14"
+                 AutomationProperties.AutomationId="CashierStatusBanner" />
+    </Border>
+
+    <!-- Row 2: cart (left) + payment panel (right). -->
+    <Grid Grid.Row="2"
+          Padding="24,8,24,8"
+          ColumnSpacing="16">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="320" />
+      </Grid.ColumnDefinitions>
+
+      <!-- Cart list (left). -->
+      <Border Grid.Column="0"
+              BorderBrush="{ThemeResource SystemAccentColor}"
+              BorderThickness="1"
+              CornerRadius="4">
+        <ListView x:Name="CartList"
+                  ItemsSource="{x:Bind ViewModel.CartLines, Mode=OneWay}"
+                  SelectionMode="None"
+                  AutomationProperties.Name="Carrito de venta">
+          <ListView.ItemTemplate>
+            <DataTemplate x:DataType="local:CartLineViewModel">
+              <Grid Padding="8,8,8,8" ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Orientation="Vertical" Spacing="2">
+                  <TextBlock FontSize="16" FontWeight="SemiBold">
+                    <Run Text="{x:Bind Quantity, Mode=OneWay}" />
+                    <Run Text=" x " />
+                    <Run Text="{x:Bind Name, Mode=OneWay}" />
+                  </TextBlock>
+                  <TextBlock FontSize="12" Opacity="0.7">
+                    <Run Text="{x:Bind Sku, Mode=OneWay}" />
+                    <Run Text=" — " />
+                    <Run Text="{x:Bind UnitPrice, Mode=OneWay}" />
+                  </TextBlock>
+                </StackPanel>
+                <Button Grid.Column="1"
+                        Content="Quitar"
+                        MinHeight="44"
+                        MinWidth="44"
+                        Command="{Binding RemoveLineCommand}"
+                        CommandParameter="{x:Bind}"
+                        AutomationProperties.AutomationId="RemoveCartLine" />
+              </Grid>
+            </DataTemplate>
+          </ListView.ItemTemplate>
+        </ListView>
+      </Border>
+
+      <!-- Payment panel (right). -->
+      <Border Grid.Column="1"
+              BorderBrush="{ThemeResource SystemAccentColor}"
+              BorderThickness="1"
+              CornerRadius="4"
+              Padding="16">
+        <StackPanel Orientation="Vertical" Spacing="12">
+          <TextBlock Text="Total a pagar"
+                     FontSize="14"
+                     Opacity="0.7"
+                     AutomationProperties.AutomationId="PaymentTotalLabel" />
+          <TextBlock FontSize="32"
+                     FontWeight="Bold"
+                     Text="{x:Bind ViewModel.Total, Mode=OneWay, Converter={StaticResource CurrencyConverter}}"
+                     AutomationProperties.AutomationId="PaymentTotalAmount" />
+
+          <TextBlock Text="Método de pago"
+                     FontSize="14"
+                     Opacity="0.7" />
+          <ComboBox x:Name="PaymentMethodPicker"
+                    SelectedIndex="{x:Bind ViewModel.PaymentMethod, Mode=TwoWay}"
+                    MinHeight="56"
+                    HorizontalAlignment="Stretch"
+                    AutomationProperties.AutomationId="PaymentMethodPicker">
+            <ComboBoxItem Content="Efectivo" Tag="0" />
+            <ComboBoxItem Content="Tarjeta" Tag="1" />
+            <ComboBoxItem Content="Transferencia" Tag="2" />
+            <ComboBoxItem Content="Otro" Tag="3" />
+          </ComboBox>
+
+          <TextBlock Text="Recibido (COP)"
+                     FontSize="14"
+                     Opacity="0.7" />
+          <TextBox x:Name="TenderedAmountInput"
+                   Text="{x:Bind ViewModel.TenderedAmount, Mode=TwoWay, Converter={StaticResource DecimalConverter}}"
+                   InputScope="Number"
+                   MinHeight="56"
+                   FontSize="24"
+                   AutomationProperties.AutomationId="TenderedAmountInput" />
+
+          <TextBlock Text="Cambio"
+                     FontSize="14"
+                     Opacity="0.7" />
+          <TextBlock FontSize="20"
+                     FontWeight="SemiBold"
+                     Text="{x:Bind ViewModel.ChangeAmount, Mode=OneWay, Converter={StaticResource CurrencyConverter}}"
+                     AutomationProperties.AutomationId="ChangeAmountDisplay" />
+
+          <TextBlock Text="Recibo"
+                     FontSize="14"
+                     Opacity="0.7" />
+          <ComboBox x:Name="ReceiptOptionPicker"
+                    SelectedIndex="{x:Bind ViewModel.ReceiptOption, Mode=TwoWay}"
+                    MinHeight="56"
+                    HorizontalAlignment="Stretch"
+                    AutomationProperties.AutomationId="ReceiptOptionPicker">
+            <ComboBoxItem Content="Imprimir" Tag="0" />
+            <ComboBoxItem Content="Email" Tag="1" />
+            <ComboBoxItem Content="Sin impresión" Tag="2" />
+          </ComboBox>
+        </StackPanel>
+      </Border>
+    </Grid>
+
+    <!-- Row 3: action buttons (Cancel + Complete Sale). -->
+    <Grid Grid.Row="3"
+          Padding="24,16,24,16"
+          ColumnSpacing="16">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+
+      <Button Grid.Column="0"
+              Content="Cancelar venta (Esc)"
+              MinHeight="56"
+              HorizontalAlignment="Stretch"
+              Command="{x:Bind ViewModel.VoidLastSaleCommand}"
+              AutomationProperties.AutomationId="VoidSaleButton" />
+
+      <Button Grid.Column="1"
+              Content="Cobrar (F9)"
+              MinHeight="56"
+              HorizontalAlignment="Stretch"
+              Background="Green"
+              Foreground="White"
+              FontWeight="SemiBold"
+              Command="{x:Bind ViewModel.CompleteSaleCommand}"
+              IsEnabled="{x:Bind ViewModel.CanCompleteSale, Mode=OneWay}"
+              AutomationProperties.AutomationId="CompleteSaleButton" />
+    </Grid>
+  </Grid>
+</Page>

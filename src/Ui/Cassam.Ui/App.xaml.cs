@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using Cassam.Ui.Hardware.Common;
+using Cassam.Ui.Hardware.Common.Cashier;
 using Cassam.Ui.Hardware.Common.Mock;
 using Cassam.Ui.Hardware.Common.Stubs;
+using Cassam.Ui.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -42,8 +44,38 @@ public partial class App : Application
                 services.AddSingleton<IDianStatusProvider, StubDianStatusProvider>();
                 services.AddSingleton<ISyncStateProvider, StubSyncStateProvider>();
 
-                // ---- Application root + entry VM ----
+                // ---- Application root + entry VMs ----
                 services.AddSingleton<ViewModels.MainViewModel>();
+
+                // ---- Cashier flow (PR 8, T2.08) ----
+                // The cashier VM is the first end-user-facing screen.
+                // Singleton because the scanner + printer + pole +
+                // drawer HALs are singletons (PR 7 rationale) and
+                // the VM owns the scanner-event subscription. A
+                // transient VM would re-subscribe on every page
+                // navigation, leaking events.
+                services.AddSingleton<CashierViewModel>();
+                services.AddSingleton<CashierView>();
+                services.AddSingleton<IProductCatalog>(_ =>
+                    new InMemoryProductCatalog(new Dictionary<string, ProductSearchResult>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        // Minimal fixture so the cashier flow renders
+                        // a non-empty cart on first launch. The
+                        // production catalog (PR 9 / T2.09) replaces
+                        // this with the EF-backed IProductCatalogService.
+                        ["7701234567890"] = new ProductSearchResult(
+                            Guid.Parse("00000000-0000-0000-0000-000000000001"),
+                            "001-7701234",
+                            "Arroz Diana 1kg",
+                            3500m,
+                            Core.Domain.Enums.TaxCategory.Standard),
+                        ["7709876543210"] = new ProductSearchResult(
+                            Guid.Parse("00000000-0000-0000-0000-000000000002"),
+                            "002-7709876",
+                            "Leche Alpina 1L",
+                            4500m,
+                            Core.Domain.Enums.TaxCategory.Exempt),
+                    }));
 
                 // ---- Per-platform HAL (PR 7 — design §6.2) ----
                 // The branch selects the matching AddXxxHardware
@@ -113,10 +145,14 @@ public partial class App : Application
 
         if (rootFrame.Content == null)
         {
-            // Single-page bootstrap. The cashier + manager flows land in
-            // PR 8 (T2.02 + T2.03) and PR 9 (T2.09); this PR ships only
-            // the shell + the byte-identical MainPage required by SCN-UI-01.
-            rootFrame.Navigate(typeof(MainPage), args.Arguments);
+            // PR 8 (T2.08): the first end-user-facing screen is now
+            // the cashier flow. The MainPage bootstrap survives as
+            // the shell fallback but the navigation entry point
+            // becomes CashierView. The frame transition is
+            // post-construction so the DI container's async
+            // InitialiseAsync (which wires the scanner event)
+            // completes before the page renders.
+            rootFrame.Navigate(typeof(Cassier.CashierView), args.Arguments);
         }
 
         MainWindow.Activate();

@@ -1,12 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Application xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="using:Cassam.Ui.Common.Converters">
   <Application.Resources>
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
         <!-- Loads WinUI / Uno XAML control templates -->
         <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
       </ResourceDictionary.MergedDictionaries>
+
+      <!--
+        Cashier-flow converters (PR 8, T2.08 + T2.10 es-CO locale).
+        CurrencyConverter formats COP per DD-09 ("$ 1.234.567,50");
+        DecimalConverter round-trips plain numeric input through
+        the same culture-aware parser so two-way bindings work
+        cleanly with es-CO locale.
+      -->
+      <converters:CurrencyConverter x:Key="CurrencyConverter" />
+      <converters:DecimalConverter x:Key="DecimalConverter" />
     </ResourceDictionary>
   </Application.Resources>
 </Application>

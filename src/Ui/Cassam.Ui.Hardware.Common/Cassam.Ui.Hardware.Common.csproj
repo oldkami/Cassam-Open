@@ -6,7 +6,14 @@
         - all Uno head projects (which target net10.0-* specific platforms)
       No platform-specific dependencies. The per-platform HAL
       implementations land in dedicated projects (Cassam.Ui.Hardware.Windows
-      / .Gtk / .Android / .macOS / .Wasm) in PR 7-8 (T2.03..T2.07).
+      / .Linux / .Android / .MacOS / .Wasm) in PR 7-8 (T2.03..T2.07).
+
+      PR 8 (T2.08) extended this project to also host the cashier
+      flow's platform-neutral logic: CashierViewModel, CartLineViewModel,
+      LegalAmountSpanish, IProductCatalog, etc. Keeping these in the
+      net10.0 test-friendly assembly lets the unit tests cover the
+      full ViewModel state machine without needing the Uno head's
+      XAML compile-time graph.
     -->
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -14,5 +21,15 @@
     <LangVersion>latest</LangVersion>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\Cassam.Core.Domain\Cassam.Core.Domain.csproj" />
+  </ItemGroup>
 
 </Project>
