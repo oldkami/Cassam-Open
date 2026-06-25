@@ -138,6 +138,14 @@ public class CassamDbContext : DbContext
             entity.Property(u => u.DisplayName).HasMaxLength(100).IsRequired();
             entity.Property(u => u.Role).HasConversion<string>().HasMaxLength(16);
 
+            // Per-cashier quick-keys (PR 7 / design §17.1, question #6).
+            // JSON payload, nullable (cashier may not have personalised
+            // yet). Mapped to `quick_keys text` — see the EF migration
+            // `UserQuickKeys` for the column type. The cashier flow
+            // (T2.08 in PR 9) reads the full payload on session open
+            // and writes it back when the cashier pins a new product.
+            entity.Property(u => u.QuickKeys).HasColumnType("text");
+
             entity.Property(u => u.Version).IsConcurrencyToken();
 
             // Composite uniqueness: (tenant_id, lower(email)) — case-insensitive

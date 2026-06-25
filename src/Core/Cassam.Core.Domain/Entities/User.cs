@@ -36,6 +36,34 @@ public class User : Entity, ISoftDeletable, ITenantScoped
     /// <summary>False when the operator is suspended but not deleted.</summary>
     public bool Active { get; set; } = true;
 
+    /// <summary>
+    /// Per-cashier quick-keys (favourite products) as a JSON payload.
+    /// Stores up to 12 product identifiers the cashier can summon with
+    /// one tap on the POS keypad. Null when the cashier has not
+    /// personalised their keypad yet (UI shows the default 12).
+    ///
+    /// <para>
+    /// Schema (informal, mirrored by <c>QuickKeysSerializer</c> in
+    /// PR 9 / T2.08):
+    /// <code>
+    /// {
+    ///   "product_ids": [ "uuid-1", "uuid-2", ... ],   // 0..12 items
+    ///   "max": 12                                      // constant
+    /// }
+    /// </code>
+    /// </para>
+    ///
+    /// <para>
+    /// The JSON shape is deliberately minimal — a separate table was
+    /// considered but rejected because (a) the cashier flow only ever
+    /// reads the full set, (b) the data never joins with anything, and
+    /// (c) keeping it on the user row avoids an extra round-trip on the
+    /// &lt; 5 s cashier flow budget (SCN-UI-02). See design §17.1
+    /// question #6 (RESOLVED 2026-06-24, per-cashier) and PR 7 §17.
+    /// </para>
+    /// </summary>
+    public string? QuickKeys { get; set; }
+
     /// <inheritdoc />
     public DateTime? DeletedAt { get; set; }
 }
