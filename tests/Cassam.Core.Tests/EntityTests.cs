@@ -58,6 +58,36 @@ public class EntityTests
     }
 
     [Fact]
+    public void User_quick_keys_defaults_to_null_for_fresh_cashier()
+    {
+        // Per design §17.1 question #6 (RESOLVED 2026-06-24), the
+        // cashier's 12-favourite keypad starts empty — the UI shows
+        // a default 12 until the cashier pins anything. The C# default
+        // for a nullable string must therefore be null.
+        var user = new User();
+
+        user.QuickKeys.Should().BeNull(
+            "a freshly-instantiated User has not personalised the keypad yet");
+    }
+
+    [Fact]
+    public void User_quick_keys_round_trips_a_json_payload()
+    {
+        // The cashier flow (PR 9 / T2.08) writes the full payload back
+        // as a single JSON string. The property carries the bytes
+        // verbatim — no parsing happens at the entity layer; that
+        // responsibility belongs to the serializer next to the cashier
+        // page.
+        var user = new User();
+        const string payload = "{\"product_ids\":[\"7700000000001\"],\"max\":12}";
+
+        user.QuickKeys = payload;
+
+        user.QuickKeys.Should().Be(payload,
+            "the property is an opaque JSON carrier — no in-place mutation happens");
+    }
+
+    [Fact]
     public void Product_defaults_to_standard_tax_category_and_zero_stock()
     {
         var product = new Product
