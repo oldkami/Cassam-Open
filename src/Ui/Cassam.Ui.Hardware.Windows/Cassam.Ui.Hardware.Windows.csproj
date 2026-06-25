@@ -1,0 +1,77 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!--
+      Windows hardware-abstraction implementation of the interfaces
+      declared in Cassam.Ui.Hardware.Common.
+
+      TFM: net10.0-windows10.0.19041.0 — the same Windows SDK target
+      the rest of Cassam.Ui uses for its `net10.0-windows10.0.26100`
+      head. We pin 10.0.19041 because the project's MSBuild Windows
+      SDK is 10.0.19041.0 (per Uno Platform 6 docs) and the lower
+      SDK number keeps the build matrix lean while still exposing
+      every Win32 / WinRT API the HAL needs.
+
+      What lives here (T2.03 per PR 7 user instructions; design §6.2
+      "Windows" row):
+        - WindowsHidKeyboardBarcodeScanner  — global keyboard hook
+              via SetWindowsHookEx WH_KEYBOARD_LL; filters rapid input
+              + Enter suffix. No driver install (REQ-UI-04).
+        - WindowsEscPosReceiptPrinter        — serial (SerialPort)
+              + LAN (TcpClient) + USB-vendor-class (RawPrinterHelper
+              P/Invoke: OpenPrinter / WritePrinter).
+        - WindowsCashDrawer                 — drives the RJ12 kick
+              via the printer's ESC p 0 25 250 sequence (same
+              IReceiptPrinter surface — see design §6.2 note).
+        - WindowsSerialPoleDisplay          — serial VFD (CD-7220
+              / Bixolon command set).
+        - WindowsHardwareModule             — DI extension that
+              registers all four against the per-platform container.
+
+      Out of scope for PR 7 (PR 8 / T2.06):
+        - Ambient-light sensor (rare on Windows retail stations).
+        - Direct-connected USB cash drawer (covered by the ICashDrawer
+          interface but not implemented here; the printer-kick path
+          covers 99 % of retail).
+
+      DI / wiring: the Cassam.Ui App.xaml.cs uses
+      `WindowsHardwareModule.AddWindowsHardware(services)` inside a
+      `#if WINDOWS` block — see the per-platform DI commit.
+    -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <UseWindowsForms>false</UseWindowsForms>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <RootNamespace>Cassam.Ui.Hardware.Windows</RootNamespace>
+    <AssemblyName>Cassam.Ui.Hardware.Windows</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      The HAL interfaces (IBarcodeScanner, IReceiptPrinter,
+      ICashDrawer, ICustomerPoleDisplay) live in the platform-neutral
+      Hardware.Common project so all 5 Uno heads can reference them.
+    -->
+    <ProjectReference Include="..\Cassam.Ui.Hardware.Common\Cassam.Ui.Hardware.Common.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      System.IO.Ports stopped being part of the shared framework in
+      .NET 5+; we restore it here because the serial path on
+      Windows uses SerialPort directly (no P/Invoke needed).
+    -->
+    <PackageReference Include="System.IO.Ports" Version="10.0.0" />
+
+    <!--
+      DependencyInjection is required by the per-platform module that
+      App.xaml.cs calls. The Uno UI host already references
+      Microsoft.Extensions.Hosting; we duplicate the dependency
+      here so this project is self-contained and consumable from
+      a non-Uno test harness (e.g. Cassam.Ui.Hardware.Windows.Tests).
+    -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
+  </ItemGroup>
+
+</Project>
