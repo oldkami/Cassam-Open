@@ -47,6 +47,15 @@
     <LangVersion>latest</LangVersion>
     <RootNamespace>Cassam.Ui.Hardware.Linux</RootNamespace>
     <AssemblyName>Cassam.Ui.Hardware.Linux</AssemblyName>
+    <!--
+      CS0067 ("event never used") is suppressed here for the three
+      LinuxInputHook placeholder implementations (Evdev / X11 /
+      Wayland). The events are part of the contract surface and
+      WILL be raised when the real P/Invoke bindings land in PR 10
+      (per R-UI-03 follow-up). Forcing the warnings off keeps the
+      build clean during Phase 2 / PR 8.
+    -->
+    <NoWarn>$(NoWarn);CS0067</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

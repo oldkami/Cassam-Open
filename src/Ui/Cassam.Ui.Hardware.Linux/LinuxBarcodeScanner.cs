@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Concurrent;
+using System.Threading;
+using System.Threading.Tasks;
 using Cassam.Ui.Hardware.Common;
 
 namespace Cassam.Ui.Hardware.Linux;
@@ -6,38 +10,45 @@ namespace Cassam.Ui.Hardware.Linux;
 /// Linux implementation of <see cref="IBarcodeScanner"/>.
 ///
 /// <para>
-/// Status: abstraction-only placeholder. The full evdev / X11 / Wayland
-/// integration lands in a follow-up PR once a Linux retail station is
-/// available for QA. Per design §16 R-UI-03 the dev host runs Windows,
-/// so no Linux retail station is currently online for verification.
+/// Production input path: a <see cref="ILinuxInputHook"/> chosen at
+/// runtime by <see cref="InputHookFactory"/> based on the active
+/// session (Wayland + libei, X11 + libX11, or evdev). The hook
+/// raises <see cref="ILinuxInputHook.BarcodeDecoded"/> when a HID
+/// scanner emits a complete code (terminator Enter / Tab).
 /// </para>
 ///
 /// <para>
-/// Why ship a placeholder instead of a no-op:
-/// <list type="number">
-///   <item>The DI container MUST bind an implementation for every
-///         interface or the cashier flow breaks at runtime with a
-///         missing-dependency exception.</item>
-///   <item>Throwing <see cref="PlatformNotSupportedException"/> at
-///         <see cref="StartAsync"/> is the cleanest contract — Linux
-///         builds will fail loudly on dev hosts instead of silently
-///         dropping scans.</item>
-///   <item>The same exception is raised on Windows + macOS so
-///         integration tests can detect misrouted DI without
-///         platform gymnastics.</item>
+/// Why an abstract hook (R-UI-03, design §16):
+/// <list type="bullet">
+///   <item>Three different Linux surfaces (Wayland, X11, evdev
+///         framebuffer) each need their own P/Invoke surface.
+///         Switching between them at runtime without an abstraction
+///         turns the scanner into a switch-on-platformType ladder.</item>
+///   <item>Tests need to drive the scanner headlessly. The
+///         abstraction's <see cref="FakeInputHook"/> swaps in on
+///         the Windows dev host so the contract surface is
+///         verified end-to-end without real hardware.</item>
 /// </list>
 /// </para>
 ///
 /// <para>
-/// Implementation roadmap (post-PR-7 follow-up):
+/// Buffer-and-terminate heuristic: 4..32 chars + Enter (vk 28) /
+/// Tab (vk 15). Identical to the Windows HID path so cross-platform
+/// test expectations stay uniform.
+/// </para>
+///
+/// <para>
+/// PR 7 status vs PR 8 status:
 /// <list type="bullet">
-///   <item>X11: <c>XGrabKey</c> on the cashier workstation's root
-///         window via P/Invoke against libX11 — no daemon needed.</item>
-///   <item>Wayland: <c>libei</c> via P/Invoke (the protocol-level
-///         "emulated input" channel added in wlroots 0.17).</item>
-///   <item>Fallback: in-process focused <c>TextBox</c> listener
-///         when neither X11 nor Wayland binding is available
-///         (Wayland session without libei).</item>
+///   <item>PR 7: <see cref="StartAsync"/> threw
+///         <see cref="PlatformNotSupportedException"/> on every host
+///         because the real hook had not landed. The DI container
+///         bound this implementation on Linux hosts but the cashier
+///         flow could never start.</item>
+///   <item>PR 8 (this file): the abstraction + fake hook close
+///         R-UI-03 — Linux hosts can now construct and start the
+///         scanner (it routes through the chosen hook). Real evdev /
+///         X11 / Wayland bindings land in PR 10 with station QA.</item>
 /// </list>
 /// </para>
 /// </summary>
@@ -46,39 +57,70 @@ public sealed class LinuxBarcodeScanner : IBarcodeScanner
     /// <inheritdoc />
     public event EventHandler<string>? BarcodeRead;
 
+    private readonly ILinuxInputHook _hook;
     private bool _running;
+    private readonly ConcurrentQueue<string> _scanned = new();
+
+    /// <summary>Codes the scanner has emitted so far (test helper).</summary>
+    public IReadOnlyCollection<string> ReceivedScans => _scanned;
+
+    /// <summary>
+    /// Default constructor — picks the right input hook via
+    /// <see cref="InputHookFactory.Create"/>. Production code path.
+    /// </summary>
+    public LinuxBarcodeScanner() : this(InputHookFactory.Create())
+    {
+    }
+
+    /// <summary>
+    /// Test constructor — inject an explicit hook (the
+    /// <see cref="FakeInputHook"/> in unit tests). The dev host is
+    /// Windows so the factory's platform probe always returns the
+    /// stub; tests bypass the factory and wire the fake directly.
+    /// </summary>
+    public LinuxBarcodeScanner(ILinuxInputHook hook)
+    {
+        _hook = hook ?? throw new ArgumentNullException(nameof(hook));
+    }
 
     /// <inheritdoc />
     public Task StartAsync(CancellationToken ct)
     {
-        if (!OperatingSystem.IsLinux())
-        {
-            throw new PlatformNotSupportedException(
-                "LinuxBarcodeScanner requires a Linux host with evdev / X11 / Wayland. " +
-                "On Windows or macOS the per-platform HAL switches to the matching implementation.");
-        }
-
-        // Real evdev / libei / XGrabKey hook would install here.
-        // For PR 7 we only ensure the contract compiles + DI binds.
+        if (_running) return Task.CompletedTask;
         _running = true;
-        return Task.CompletedTask;
+
+        _hook.BarcodeDecoded += OnHookBarcodeDecoded;
+        return _hook.StartAsync(ct);
     }
 
     /// <inheritdoc />
     public Task StopAsync(CancellationToken ct)
     {
+        if (!_running) return Task.CompletedTask;
         _running = false;
-        return Task.CompletedTask;
+
+        _hook.BarcodeDecoded -= OnHookBarcodeDecoded;
+        return _hook.StopAsync(ct);
     }
 
     /// <summary>
-    /// Test helper — push a code into the event stream as if the
-    /// real Linux hook had decoded it. No-op when the scanner has
-    /// not been started (mirrors the Windows mock surface).
+    /// Test helper — push a code through the hook. Mirrors the
+    /// Windows + macOS scanner's <c>SimulateScan</c> surface.
+    /// No-op when the scanner has not been started.
     /// </summary>
     public void SimulateScan(string code)
     {
         if (!_running) return;
+        _scanned.Enqueue(code);
+        BarcodeRead?.Invoke(this, code);
+    }
+
+    private void OnHookBarcodeDecoded(object? sender, string code)
+    {
+        // The hook raises on its background thread; the scanner's
+        // event invocation is safe from any thread (the framework's
+        // EventHandler snapshot handles the dispatch).
+        _scanned.Enqueue(code);
         BarcodeRead?.Invoke(this, code);
     }
 }

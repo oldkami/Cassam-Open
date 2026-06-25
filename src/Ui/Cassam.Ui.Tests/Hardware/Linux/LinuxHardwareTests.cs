@@ -4,7 +4,6 @@ using Cassam.Ui.Hardware.Linux;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-#endif
 
 namespace Cassam.Ui.Tests.Hardware.Linux;
 
@@ -13,10 +12,9 @@ namespace Cassam.Ui.Tests.Hardware.Linux;
 /// compiles on the platform-neutral <c>net10.0</c> target so the
 /// CI matrix runs it on every host. Tests that exercise the
 /// platform-only code paths (evdev / X11 / Wayland barcode
-/// scanner) are gated on <see cref="OperatingSystem.IsLinux"/> so
-/// they self-skip on Windows / macOS CI runners.
+/// scanner) use the <see cref="FakeInputHook"/> so they run on
+/// Windows / macOS CI runners without a Linux station.
 /// </summary>
-#if !WINDOWS
 public class LinuxHardwareModuleTests
 {
     [Fact]
@@ -56,13 +54,27 @@ public class LinuxHardwareModuleTests
 public class LinuxBarcodeScannerTests
 {
     [Fact]
-    public async Task StartAsync_throws_PlatformNotSupportedException_on_non_linux_hosts()
+    public void Constructor_does_not_throw_on_any_host()
     {
+        // PR 8 (closes R-UI-03): the placeholder that threw
+        // PlatformNotSupportedException on non-Linux hosts is gone.
+        // The scanner now constructs cleanly on every host because
+        // the underlying input hook is hidden behind an abstraction.
+        var act = () => new LinuxBarcodeScanner();
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public async Task StartAsync_throws_on_non_linux_hosts_when_factory_returns_platform_not_supported_hook()
+    {
+        // On non-Linux hosts the factory returns
+        // PlatformNotSupportedInputHook, which throws at StartAsync.
+        // This protects against a misrouted DI container binding
+        // the Linux HAL against a Windows / macOS process.
         if (OperatingSystem.IsLinux())
         {
-            // Self-skip on actual Linux hosts — the test only
-            // protects dev hosts + CI runners where the placeholder
-            // is the right contract.
+            // Self-skip on actual Linux hosts — the factory returns
+            // a non-throwing hook there.
             return;
         }
 
@@ -70,39 +82,125 @@ public class LinuxBarcodeScannerTests
         var act = async () => await scanner.StartAsync(CancellationToken.None);
 
         await act.Should().ThrowAsync<PlatformNotSupportedException>(
-            "the Linux HAL's evdev / X11 / Wayland hook is not implemented in PR 7; " +
-            "the placeholder throws to make a misrouted DI container fail loud");
+            "the non-Linux factory result refuses to start — the cashier flow must see the failure");
+    }
+
+    [Fact]
+    public async Task StartAsync_with_fake_hook_does_not_throw_on_any_host()
+    {
+        // Production code wires FakeInputHook via DI on Windows / macOS
+        // dev hosts; the StartAsync path is exercised end-to-end here.
+        var hook = new FakeInputHook();
+        var scanner = new LinuxBarcodeScanner(hook);
+
+        var act = async () => await scanner.StartAsync(CancellationToken.None);
+        await act.Should().NotThrowAsync();
     }
 
     [Fact]
     public async Task SimulateScan_is_noop_before_start()
     {
-        var scanner = new LinuxBarcodeScanner();
+        var hook = new FakeInputHook();
+        var scanner = new LinuxBarcodeScanner(hook);
         var received = new List<string>();
         scanner.BarcodeRead += (_, code) => received.Add(code);
 
-        scanner.SimulateScan("7701234567890");
+        hook.SimulateScan("7701234567890");
 
         received.Should().BeEmpty(
-            "StartAsync arms the scanner — before that SimulateScan is a no-op");
+            "StartAsync arms the scanner; before that, even a direct hook push is a no-op because the hook itself is not running");
     }
 
     [Fact]
-    public async Task SimulateScan_raises_event_after_start_on_linux()
+    public async Task SimulateScan_raises_event_after_start_on_any_host_via_fake_hook()
     {
-        if (!OperatingSystem.IsLinux())
-        {
-            // StartAsync throws on non-Linux hosts; the test would
-            // mask the throw with a different failure. Self-skip.
-            return;
-        }
-
-        var scanner = new LinuxBarcodeScanner();
+        // The fake hook + scanner form a complete end-to-end
+        // signal path: hook fires -> scanner forwards -> public
+        // event raised. Verified on every host (no Linux required).
+        var hook = new FakeInputHook();
+        var scanner = new LinuxBarcodeScanner(hook);
         var received = new List<string>();
         scanner.BarcodeRead += (_, code) => received.Add(code);
 
         await scanner.StartAsync(CancellationToken.None);
-        scanner.SimulateScan("7701234567890");
+        hook.SimulateScan("7701234567890");
+        hook.SimulateScan("7709876543210");
+
+        received.Should().Equal("7701234567890", "7709876543210");
+        scanner.ReceivedScans.Should().BeEquivalentTo(new[] { "7701234567890", "7709876543210" });
+
+        await scanner.StopAsync(CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task Start_is_idempotent()
+    {
+        // Calling StartAsync twice must not throw and must not
+        // double-subscribe to the hook (verified by receiving each
+        // scan exactly once).
+        var hook = new FakeInputHook();
+        var scanner = new LinuxBarcodeScanner(hook);
+        var received = new List<string>();
+        scanner.BarcodeRead += (_, code) => received.Add(code);
+
+        await scanner.StartAsync(CancellationToken.None);
+        await scanner.StartAsync(CancellationToken.None);
+
+        hook.SimulateScan("7701234567890");
+        received.Should().ContainSingle(
+            "a second StartAsync must NOT double-subscribe to the hook");
+    }
+
+    [Fact]
+    public async Task StopAsync_unsubscribes_from_hook()
+    {
+        // After StopAsync the scanner must not raise BarcodeRead
+        // even if the hook keeps firing (defensive — the cashier
+        // flow does not require this, but it keeps the surface
+        // honest during navigation events).
+        var hook = new FakeInputHook();
+        var scanner = new LinuxBarcodeScanner(hook);
+        var received = new List<string>();
+        scanner.BarcodeRead += (_, code) => received.Add(code);
+
+        await scanner.StartAsync(CancellationToken.None);
+        await scanner.StopAsync(CancellationToken.None);
+
+        hook.SimulateScan("7701234567890");
+        received.Should().BeEmpty("StopAsync must detach the hook");
+    }
+
+    [Fact]
+    public void Constructor_rejects_null_hook()
+    {
+        var act = () => new LinuxBarcodeScanner(null!);
+        act.Should().Throw<ArgumentNullException>();
+    }
+}
+
+public class FakeInputHookTests
+{
+    [Fact]
+    public async Task SimulateScan_is_noop_before_start()
+    {
+        var hook = new FakeInputHook();
+        var received = new List<string>();
+        hook.BarcodeDecoded += (_, code) => received.Add(code);
+
+        hook.SimulateScan("7701234567890");
+
+        received.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task SimulateScan_raises_event_after_start()
+    {
+        var hook = new FakeInputHook();
+        var received = new List<string>();
+        hook.BarcodeDecoded += (_, code) => received.Add(code);
+
+        await hook.StartAsync(CancellationToken.None);
+        hook.SimulateScan("7701234567890");
 
         received.Should().Equal("7701234567890");
     }
@@ -133,18 +231,10 @@ public class LinuxEscPosReceiptPrinterTests
     [Fact]
     public async Task KickCashDrawerAsync_sends_standard_ESC_p_pulse_bytes()
     {
-        // The printer HAL does not throw on Serial connection, so
-        // this test would normally need a real SerialPort. We can't
-        // open a serial port from a unit test (the device path does
-        // not exist), so we use a tiny recording wrapper around the
-        // HAL's USB path — which is the one connection type that
-        // throws — to verify the byte payload is the standard RJ12
-        // kick pulse. The actual device-write path lands with PR 8
-        // station hardware.
-        //
-        // This test guards the byte payload only; it does NOT
-        // exercise a real SerialPort open. A real-hardware smoke
-        // test belongs in PR 8's station checklist (design §14.3).
+        // See PR 7 rationale: SerialPath doesn't exist in the
+        // sandbox so we expect either a SerialPort validation
+        // exception OR a successful no-op. The byte payload
+        // contract is enforced at code review + PR 10 station test.
         var printer = new LinuxEscPosReceiptPrinter();
         var device = new PrinterDevice(
             Id: "printer-1",
@@ -152,16 +242,9 @@ public class LinuxEscPosReceiptPrinterTests
             Connection: ConnectionType.Serial,
             Path: "/dev/ttyUSB0");
 
-        // SerialPath doesn't exist in the test sandbox, so we expect
-        // either a SerialPort validation exception OR a successful
-        // no-op. The contract we enforce here is: the kick-byte
-        // payload is well-formed.
         try
         {
             await printer.KickCashDrawerAsync(device, CancellationToken.None);
-            // If by some miracle the SerialPort opened (unlikely in
-            // CI sandbox), the test passes — the kick bytes were
-            // sent.
         }
         catch (Exception ex) when (
             ex is ArgumentException ||
@@ -169,9 +252,7 @@ public class LinuxEscPosReceiptPrinterTests
             ex is UnauthorizedAccessException ||
             ex.GetType().FullName?.Contains("Unix") == true)
         {
-            // Expected: no /dev/ttyUSB0 in the sandbox. The byte
-            // payload contract is enforced by code review + PR 8
-            // station hardware test.
+            // Expected on Windows dev hosts + CI sandbox.
             ex.Should().NotBeNull();
         }
     }
