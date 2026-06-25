@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!--
+      Platform-neutral target so the project is consumable from:
+        - net10.0 (the test project + headless libraries)
+        - all Uno head projects (which target net10.0-* specific platforms)
+      No platform-specific dependencies. The per-platform HAL
+      implementations land in dedicated projects (Cassam.Ui.Hardware.Windows
+      / .Gtk / .Android / .macOS / .Wasm) in PR 7-8 (T2.03..T2.07).
+    -->
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+</Project>
