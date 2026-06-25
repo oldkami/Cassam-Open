@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!--
+      Web (WASM) hardware-abstraction implementation of the
+      interfaces declared in Cassam.Ui.Hardware.Common.
+
+      TFM: net10.0-browserwasm — matches the Uno Platform 6 Web
+      head (Cassam.Ui.csproj). The wasm-tools workload is the
+      CI-side prerequisite (design §14.3 build-wasm.yml).
+
+      Scope (REQ-UI-06, SCN-UI-06):
+        - Camera barcode via browser's `BarcodeDetector` API.
+        - ZXing-wasm fallback when `BarcodeDetector` is unavailable
+          (Firefox / Safari pre-17 / any non-Chromium browser).
+        - IReceiptPrinter / ICashDrawer / ICustomerPoleDisplay are
+          NO-OP. The web POS is back-office only — R-UI-04 + R-UI-10
+          acceptance. Bundle stays under 5 MB gzipped.
+
+      What lives here (T2.07 per PR 8 user instructions):
+        - WasmBarcodeScanner       — `[JSImport]` interop against the
+              browser's `BarcodeDetector` (Chromium) and ZXing-wasm
+              (fallback). Per-station operator chooses the preferred
+              decoder via `user_settings` (default: BarcodeDetector).
+        - WasmReceiptPrinter       — NO-OP. Logs a warning at start
+              so operators know the receipt will not print.
+        - WasmCashDrawer           — NO-OP.
+        - WasmCustomerPoleDisplay  — NO-OP.
+        - WasmHardwareModule       — DI extension.
+
+      Phase 2 ships the contract surface (interface implementation
+      + `JSImport` registration). Real browser integration lands in
+      PR 9 / T2.07 follow-up once the Uno WASM bundle ships to
+      staging (bundle <5 MB gzipped CI gate).
+
+      Out of scope (deferred):
+        - IPP printing via browser's `navigator.usb` / `WebUSB`
+          (rare; only some web POS deployments need it).
+        - `window.print()` paper receipt emulation (out of scope).
+    -->
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>Cassam.Ui.Hardware.Wasm</RootNamespace>
+    <AssemblyName>Cassam.Ui.Hardware.Wasm</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Cassam.Ui.Hardware.Common\Cassam.Ui.Hardware.Common.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
+  </ItemGroup>
+
+</Project>
