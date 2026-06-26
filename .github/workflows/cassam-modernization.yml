@@ -280,8 +280,16 @@ jobs:
         run: dotnet workload install android
 
       # Accept Android SDK licenses (idempotent on subsequent runs).
+      # The InstallAndroidDependencies MSBuild target only exists in
+      # Android-headed projects — calling it on the whole solution errors
+      # with "target does not exist". Scope the call to the Android HAL
+      # project.
       - name: Accept Android SDK licenses
-        run: dotnet build -t:InstallAndroidDependencies -p:AcceptAndroidSDKLicenses=true
+        run: |
+          dotnet build src/Ui/Cassam.Ui.Hardware.Android/Cassam.Ui.Hardware.Android.csproj \
+            -t:InstallAndroidDependencies \
+            -p:AcceptAndroidSDKLicenses=true \
+            --nologo
 
       - name: Restore (Android HAL + Common)
         run: |
