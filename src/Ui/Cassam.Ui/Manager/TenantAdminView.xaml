@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page x:Class="Cassam.Ui.Manager.TenantAdminView"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      mc:Ignorable="d"
+      Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+      AutomationProperties.Name="Administración del tenant">
+  <!--
+    Tenant admin sub-view (PR 10, T2.09 + REQ-MT-05 / SCN-MT-05).
+    Read-only summary of the active tenant + the entry-point
+    button for the cancel-tenant modal.
+
+    The cancel-tenant modal is a separate ContentDialog page
+    (<see cref="CancelTenantDialog"/>) that the View opens in
+    response to <see cref="TenantAdminViewModel.CancelRequested"/>.
+  -->
+  <Grid Padding="24">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <TextBlock Grid.Row="0"
+               Text="Administración del tenant"
+               FontSize="24"
+               FontWeight="SemiBold"
+               Margin="0,8,0,16"
+               AutomationProperties.AutomationId="TenantAdminTitle" />
+
+    <Border Grid.Row="1"
+            BorderBrush="{ThemeResource SystemAccentColor}"
+            BorderThickness="1"
+            CornerRadius="4"
+            Padding="24">
+      <StackPanel Spacing="12">
+        <Grid ColumnSpacing="16" RowSpacing="8">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="240" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+
+          <TextBlock Grid.Row="0" Grid.Column="0"
+                     Text="Razón social"
+                     Opacity="0.7" />
+          <TextBlock Grid.Row="0" Grid.Column="1"
+                     Text="{x:Bind ViewModel.TenantLegalName, Mode=OneWay}"
+                     FontWeight="SemiBold"
+                     AutomationProperties.AutomationId="TenantAdminLegalName" />
+
+          <TextBlock Grid.Row="1" Grid.Column="0"
+                     Text="NIT"
+                     Opacity="0.7" />
+          <TextBlock Grid.Row="1" Grid.Column="1"
+                     Text="{x:Bind ViewModel.TenantNit, Mode=OneWay}"
+                     FontWeight="SemiBold"
+                     AutomationProperties.AutomationId="TenantAdminNit" />
+
+          <TextBlock Grid.Row="2" Grid.Column="0"
+                     Text="Plan"
+                     Opacity="0.7" />
+          <TextBlock Grid.Row="2" Grid.Column="1"
+                     Text="{x:Bind ViewModel.SubscriptionTier, Mode=OneWay}"
+                     FontWeight="SemiBold"
+                     AutomationProperties.AutomationId="TenantAdminSubscriptionTier" />
+
+          <TextBlock Grid.Row="3" Grid.Column="0"
+                     Text="Transmisión a DIAN en la nube"
+                     Opacity="0.7" />
+          <TextBlock Grid.Row="3" Grid.Column="1"
+                     Text="{x:Bind ViewModel.CloudTransmissionEnabled, Mode=OneWay}"
+                     FontWeight="SemiBold"
+                     AutomationProperties.AutomationId="TenantAdminCloudTransmission" />
+        </Grid>
+
+        <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
+                   Opacity="0.7"
+                   AutomationProperties.AutomationId="TenantAdminStatusMessage" />
+
+        <Button Content="Cancelar tenant"
+                MinHeight="44"
+                Margin="0,16,0,0"
+                Background="DarkRed"
+                Foreground="White"
+                Click="OnCancelTenantClicked"
+                AutomationProperties.AutomationId="TenantAdminCancelButton" />
+      </StackPanel>
+    </Border>
+  </Grid>
+</Page>

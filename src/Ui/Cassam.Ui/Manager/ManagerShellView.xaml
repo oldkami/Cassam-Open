@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page x:Class="Cassam.Ui.Manager.ManagerShellView"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      mc:Ignorable="d"
+      Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+      AutomationProperties.Name="Administración">
+  <!--
+    Manager shell (PR 10, T2.09 + T2.10).
+
+    Layout per design §5.1:
+      * Row 0 — Header (logo + tenant name + manager name + "Volver a caja"
+                + "Cerrar sesión" buttons).
+      * Row 1 — Left navigation rail (list of sub-view buttons) +
+                Main content area that swaps the selected sub-view.
+
+    The shell renders only the navigation chrome + the active
+    sub-view's frame; the sub-views themselves live in their own
+    pages (Products, Customers, CashSessions, Reports, DianStatus,
+    TenantAdmin). The shell's VM owns
+    <see cref="Cassam.Ui.Hardware.Common.Manager.ManagerRoute"/>
+    so the navigation buttons highlight the active route.
+
+    Touch targets ≥44 dp on Android per SCN-UI-11 (the buttons all
+    declare MinHeight=44). Keyboard navigation is the default XAML
+    Tab order (no custom handling needed per design §9.1).
+  -->
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <!-- Row 0 — Header. -->
+    <Grid Grid.Row="0"
+          Padding="24,16,24,16"
+          ColumnSpacing="16">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+
+      <Image Grid.Column="0"
+             Source="ms-appx:///Assets/logoCassamTransp.png"
+             Height="48"
+             Stretch="Uniform"
+             VerticalAlignment="Center"
+             AutomationProperties.Name="Cassam logo" />
+
+      <StackPanel Grid.Column="1"
+                  Orientation="Vertical"
+                  VerticalAlignment="Center"
+                  Spacing="2">
+        <TextBlock Text="{x:Bind ViewModel.TenantLegalName, Mode=OneWay}"
+                   FontSize="20"
+                   FontWeight="SemiBold"
+                   AutomationProperties.AutomationId="ManagerTenantName" />
+        <TextBlock FontSize="12"
+                   Opacity="0.7"
+                   AutomationProperties.AutomationId="ManagerSubtitle">
+          <Run Text="{x:Bind ViewModel.ManagerDisplayName, Mode=OneWay}" />
+          <Run Text=" — " />
+          <Run Text="{x:Bind ViewModel.UserRole, Mode=OneWay}" />
+          <Run Text=" · Estación " />
+          <Run Text="{x:Bind ViewModel.StationId, Mode=OneWay}" />
+        </TextBlock>
+      </StackPanel>
+
+      <Button Grid.Column="2"
+              Content="Volver a caja"
+              MinHeight="44"
+              Click="OnBackToCashierClicked"
+              AutomationProperties.AutomationId="ManagerBackToCashier" />
+
+      <Button Grid.Column="3"
+              Content="Cerrar sesión"
+              MinHeight="44"
+              Click="OnSignOutClicked"
+              AutomationProperties.AutomationId="ManagerSignOut" />
+
+      <!-- Placeholder so the layout stays balanced when SignOut grows. -->
+      <Border Grid.Column="4" Width="0" />
+    </Grid>
+
+    <!-- Row 1 — Left nav rail + main content area. -->
+    <Grid Grid.Row="1" ColumnSpacing="0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="240" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+
+      <!-- Left nav. ListBox so the active item gets the standard highlight. -->
+      <Border Grid.Column="0"
+              BorderBrush="{ThemeResource SystemAccentColor}"
+              BorderThickness="0,1,1,0"
+              Padding="8">
+        <ListBox x:Name="NavList"
+                 SelectionMode="Single"
+                 SelectedIndex="0"
+                 SelectionChanged="OnNavSelectionChanged"
+                 AutomationProperties.Name="Navegación del manager">
+          <ListBoxItem Content="Resumen"
+                       Tag="0"
+                       MinHeight="44"
+                       AutomationProperties.AutomationId="ManagerNavOverview" />
+          <ListBoxItem Content="Productos"
+                       Tag="1"
+                       MinHeight="44"
+                       AutomationProperties.AutomationId="ManagerNavProducts" />
+          <ListBoxItem Content="Clientes"
+                       Tag="2"
+                       MinHeight="44"
+                       AutomationProperties.AutomationId="ManagerNavCustomers" />
+          <ListBoxItem Content="Caja registradora"
+                       Tag="3"
+                       MinHeight="44"
+                       AutomationProperties.AutomationId="ManagerNavCashSessions" />
+          <ListBoxItem Content="Reportes"
+                       Tag="4"
+                       MinHeight="44"
+                       AutomationProperties.AutomationId="ManagerNavReports" />
+          <ListBoxItem Content="DIAN — Estado"
+                       Tag="5"
+                       MinHeight="44"
+                       AutomationProperties.AutomationId="ManagerNavDianStatus" />
+          <ListBoxItem Content="Administración"
+                       Tag="6"
+                       MinHeight="44"
+                       AutomationProperties.AutomationId="ManagerNavTenantAdmin" />
+        </ListBox>
+      </Border>
+
+      <!-- Main content area. The Frame swaps the active sub-view. -->
+      <Border Grid.Column="1"
+              BorderBrush="{ThemeResource SystemAccentColor}"
+              BorderThickness="0,1,0,0">
+        <Frame x:Name="SubViewFrame"
+               AutomationProperties.Name="Contenido del manager" />
+      </Border>
+    </Grid>
+  </Grid>
+</Page>

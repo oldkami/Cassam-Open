@@ -103,4 +103,224 @@
   <data name="Cashier.Status.NoPrinterConfigured" xml:space="preserve">
     <value>No hay impresora configurada para esta estación.</value>
   </data>
+
+  <!-- Manager shell (T2.09) — navigation, header, sub-pages. -->
+  <data name="Manager.Header.RolePrefix" xml:space="preserve">
+    <value>{0} — {1}</value>
+  </data>
+  <data name="Manager.Header.ManagerLabel" xml:space="preserve">
+    <value>Modo manager</value>
+  </data>
+  <data name="Manager.Header.StationLabel" xml:space="preserve">
+    <value>Estación</value>
+  </data>
+  <data name="Manager.Header.BackToCashier" xml:space="preserve">
+    <value>Volver a caja</value>
+  </data>
+  <data name="Manager.Header.SignOut" xml:space="preserve">
+    <value>Cerrar sesión</value>
+  </data>
+  <data name="Manager.MainPage.OpenManager" xml:space="preserve">
+    <value>Modo manager</value>
+  </data>
+
+  <!-- Manager navigation tabs. -->
+  <data name="Manager.Tab.Overview" xml:space="preserve">
+    <value>Resumen</value>
+  </data>
+  <data name="Manager.Tab.Products" xml:space="preserve">
+    <value>Productos</value>
+  </data>
+  <data name="Manager.Tab.Customers" xml:space="preserve">
+    <value>Clientes</value>
+  </data>
+  <data name="Manager.Tab.CashSessions" xml:space="preserve">
+    <value>Caja registradora</value>
+  </data>
+  <data name="Manager.Tab.Reports" xml:space="preserve">
+    <value>Reportes</value>
+  </data>
+  <data name="Manager.Tab.DianStatus" xml:space="preserve">
+    <value>DIAN — Estado</value>
+  </data>
+  <data name="Manager.Tab.TenantAdmin" xml:space="preserve">
+    <value>Administración</value>
+  </data>
+
+  <!-- Products sub-page. -->
+  <data name="Manager.Products.Title" xml:space="preserve">
+    <value>Productos</value>
+  </data>
+  <data name="Manager.Products.SearchPlaceholder" xml:space="preserve">
+    <value>Buscar por SKU, nombre o código de barras</value>
+  </data>
+  <data name="Manager.Products.Add" xml:space="preserve">
+    <value>Agregar</value>
+  </data>
+  <data name="Manager.Products.Edit" xml:space="preserve">
+    <value>Editar</value>
+  </data>
+  <data name="Manager.Products.Delete" xml:space="preserve">
+    <value>Eliminar</value>
+  </data>
+  <data name="Manager.Products.Save" xml:space="preserve">
+    <value>Guardar</value>
+  </data>
+  <data name="Manager.Products.Cancel" xml:space="preserve">
+    <value>Cancelar</value>
+  </data>
+  <data name="Manager.Products.EmptyMessage" xml:space="preserve">
+    <value>No hay productos registrados.</value>
+  </data>
+
+  <!-- Customers sub-page. -->
+  <data name="Manager.Customers.Title" xml:space="preserve">
+    <value>Clientes</value>
+  </data>
+  <data name="Manager.Customers.SearchPlaceholder" xml:space="preserve">
+    <value>Buscar por nombre o número de documento</value>
+  </data>
+  <data name="Manager.Customers.EmptyMessage" xml:space="preserve">
+    <value>No hay clientes registrados.</value>
+  </data>
+
+  <!-- Cash sessions sub-page. -->
+  <data name="Manager.CashSessions.Title" xml:space="preserve">
+    <value>Caja registradora</value>
+  </data>
+  <data name="Manager.CashSessions.OpenSession" xml:space="preserve">
+    <value>Abrir caja</value>
+  </data>
+  <data name="Manager.CashSessions.CloseSession" xml:space="preserve">
+    <value>Cerrar caja</value>
+  </data>
+  <data name="Manager.CashSessions.NoSessionOpen" xml:space="preserve">
+    <value>No hay una sesión de caja abierta.</value>
+  </data>
+  <data name="Manager.CashSessions.OpenLabel" xml:space="preserve">
+    <value>Sesión abierta por</value>
+  </data>
+  <data name="Manager.CashSessions.OpeningAmount" xml:space="preserve">
+    <value>Monto de apertura (COP)</value>
+  </data>
+  <data name="Manager.CashSessions.ClosingAmount" xml:space="preserve">
+    <value>Monto de cierre contado (COP)</value>
+  </data>
+  <data name="Manager.CashSessions.HistoryTitle" xml:space="preserve">
+    <value>Historial reciente</value>
+  </data>
+  <data name="Manager.CashSessions.HistoryEmpty" xml:space="preserve">
+    <value>Aún no hay sesiones cerradas.</value>
+  </data>
+
+  <!-- Reports navigation shell. -->
+  <data name="Manager.Reports.Title" xml:space="preserve">
+    <value>Reportes</value>
+  </data>
+  <data name="Manager.Reports.DailySales" xml:space="preserve">
+    <value>Ventas del día</value>
+  </data>
+  <data name="Manager.Reports.Inventory" xml:space="preserve">
+    <value>Inventario</value>
+  </data>
+  <data name="Manager.Reports.CashClose" xml:space="preserve">
+    <value>Cierre de caja</value>
+  </data>
+  <data name="Manager.Reports.Placeholder" xml:space="preserve">
+    <value>[Reporte se renderiza en PR 11]</value>
+  </data>
+
+  <!-- DIAN status panel (T2.10). -->
+  <data name="Manager.Dian.Title" xml:space="preserve">
+    <value>DIAN — Estado</value>
+  </data>
+  <data name="Manager.Dian.Refresh" xml:space="preserve">
+    <value>Actualizar</value>
+  </data>
+  <data name="Manager.Dian.ActiveResoluciones" xml:space="preserve">
+    <value>Resoluciones activas</value>
+  </data>
+  <data name="Manager.Dian.Certificates" xml:space="preserve">
+    <value>Certificado</value>
+  </data>
+  <data name="Manager.Dian.CertificatesExpiring" xml:space="preserve">
+    <value>{0} certificado(s) expira(n) en los próximos 30 días.</value>
+  </data>
+  <data name="Manager.Dian.LastTransmission" xml:space="preserve">
+    <value>Última transmisión</value>
+  </data>
+  <data name="Manager.Dian.SyncState" xml:space="preserve">
+    <value>Sincronización</value>
+  </data>
+  <data name="Manager.Dian.QueueDepth" xml:space="preserve">
+    <value>Cola</value>
+  </data>
+  <data name="Manager.Dian.LastSync" xml:space="preserve">
+    <value>Última sincronización</value>
+  </data>
+  <data name="Manager.Dian.ContingencyMode" xml:space="preserve">
+    <value>Modo contingencia</value>
+  </data>
+  <data name="Manager.Dian.Retry" xml:space="preserve">
+    <value>Reintentar</value>
+  </data>
+  <data name="Manager.Dian.Void" xml:space="preserve">
+    <value>Anular último</value>
+  </data>
+  <data name="Manager.Dian.Validated" xml:space="preserve">
+    <value>Validado</value>
+  </data>
+  <data name="Manager.Dian.Rejected" xml:space="preserve">
+    <value>Rechazado</value>
+  </data>
+  <data name="Manager.Dian.Pending" xml:space="preserve">
+    <value>Pendiente</value>
+  </data>
+  <data name="Manager.Dian.NoTransmissions" xml:space="preserve">
+    <value>Sin transmisiones registradas</value>
+  </data>
+
+  <!-- Tenant admin + cancel-tenant modal. -->
+  <data name="Manager.TenantAdmin.Title" xml:space="preserve">
+    <value>Administración del tenant</value>
+  </data>
+  <data name="Manager.TenantAdmin.LegalName" xml:space="preserve">
+    <value>Razón social</value>
+  </data>
+  <data name="Manager.TenantAdmin.Nit" xml:space="preserve">
+    <value>NIT</value>
+  </data>
+  <data name="Manager.TenantAdmin.SubscriptionTier" xml:space="preserve">
+    <value>Plan</value>
+  </data>
+  <data name="Manager.TenantAdmin.CloudTransmission" xml:space="preserve">
+    <value>Transmisión a DIAN en la nube</value>
+  </data>
+  <data name="Manager.TenantAdmin.Cancel" xml:space="preserve">
+    <value>Cancelar tenant</value>
+  </data>
+  <data name="Manager.CancelTenant.Title" xml:space="preserve">
+    <value>Cancelar tenant</value>
+  </data>
+  <data name="Manager.CancelTenant.Warning" xml:space="preserve">
+    <value>Esta acción es irreversible. El tenant pasará a estado ELIMINADO y los datos fiscales permanecerán bloqueados durante 5 años. Para confirmar, escriba el NIT del tenant.</value>
+  </data>
+  <data name="Manager.CancelTenant.NitPlaceholder" xml:space="preserve">
+    <value>NIT del tenant</value>
+  </data>
+  <data name="Manager.CancelTenant.Confirm" xml:space="preserve">
+    <value>Confirmar cancelación</value>
+  </data>
+  <data name="Manager.CancelTenant.Cancel" xml:space="preserve">
+    <value>Cancelar</value>
+  </data>
+  <data name="Manager.CancelTenant.SuccessTitle" xml:space="preserve">
+    <value>Tenant cancelado</value>
+  </data>
+  <data name="Manager.CancelTenant.SuccessMessage" xml:space="preserve">
+    <value>El tenant está en estado ELIMINADO. Los datos fiscales se conservarán hasta el {0}.</value>
+  </data>
+  <data name="Manager.CancelTenant.RetentionExpires" xml:space="preserve">
+    <value>Vencimiento de retención</value>
+  </data>
 </resw>

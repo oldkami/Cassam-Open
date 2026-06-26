@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentDialog x:Class="Cassam.Ui.Manager.CancelTenantDialog"
+               xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+               xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+               xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+               xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+               mc:Ignorable="d"
+               Title="Cancelar tenant"
+               PrimaryButtonText="Confirmar cancelación"
+               CloseButtonText="Cancelar"
+               DefaultButton="Close"
+               PrimaryButtonClick="OnConfirmClicked">
+  <!--
+    Cancel-tenant modal (PR 10, T2.09, REQ-MT-05 / SCN-MT-05).
+    Renders the destructive-workflow confirmation: warns the
+    user, asks them to retype the NIT, and on confirm calls
+    <see cref="Cassam.Ui.Hardware.Common.Manager.CancelTenantModalViewModel.ConfirmCancelAsync"/>
+    which delegates to the Phase 1
+    <c>ITenantLifecycleService.RequestDeletionAsync</c>.
+
+    Touch targets ≥44 dp on Android per SCN-UI-11. Keyboard
+    navigation follows the standard XAML focus order.
+  -->
+  <Grid>
+    <!-- Idle state: confirmation prompt + NIT input. -->
+    <StackPanel Spacing="16"
+                Visibility="{x:Bind ViewModel.IsCancelled, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+      <TextBlock Text="Esta acción es irreversible. El tenant pasará a estado ELIMINADO y los datos fiscales permanecerán bloqueados durante 5 años. Para confirmar, escriba el NIT del tenant."
+                 TextWrapping="Wrap" />
+      <TextBlock FontSize="14"
+                 FontWeight="SemiBold"
+                 AutomationProperties.AutomationId="CancelTenantLegalName">
+        <Run Text="Razón social: " />
+        <Run Text="{x:Bind ViewModel.TenantLegalName, Mode=OneWay}" />
+      </TextBlock>
+      <TextBlock FontSize="14"
+                 FontWeight="SemiBold"
+                 AutomationProperties.AutomationId="CancelTenantNitReference">
+        <Run Text="NIT: " />
+        <Run Text="{x:Bind ViewModel.TenantNit, Mode=OneWay}" />
+      </TextBlock>
+      <TextBox Header="NIT del tenant"
+               PlaceholderText="NIT del tenant"
+               Text="{x:Bind ViewModel.ConfirmationInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+               MinHeight="44"
+               AutomationProperties.AutomationId="CancelTenantNitInput" />
+      <TextBlock Text="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
+                 Foreground="Red"
+                 Visibility="{x:Bind ViewModel.ErrorMessage, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}"
+                 AutomationProperties.AutomationId="CancelTenantErrorMessage" />
+    </StackPanel>
+
+    <!-- Success state: tenant deleted, retention expiry shown. -->
+    <StackPanel Spacing="12"
+                Visibility="{x:Bind ViewModel.IsCancelled, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+      <TextBlock Text="Tenant cancelado"
+                 FontSize="20"
+                 FontWeight="SemiBold"
+                 Foreground="DarkRed"
+                 AutomationProperties.AutomationId="CancelTenantSuccessHeading" />
+      <TextBlock TextWrapping="Wrap"
+                 AutomationProperties.AutomationId="CancelTenantSuccessMessage">
+        <Run Text="El tenant está en estado ELIMINADO. Los datos fiscales se conservarán hasta el " />
+        <Run Text="{x:Bind ViewModel.RetentionExpiresAt, Mode=OneWay, Converter={StaticResource DateEsCoConverter}}" />
+        <Run Text="." />
+      </TextBlock>
+    </StackPanel>
+  </Grid>
+</ContentDialog>

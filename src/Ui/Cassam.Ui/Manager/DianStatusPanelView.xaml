@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page x:Class="Cassam.Ui.Manager.DianStatusPanelView"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      mc:Ignorable="d"
+      Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+      AutomationProperties.Name="DIAN — Estado">
+  <!--
+    DIAN status panel (PR 10, T2.10, design §5.2, REQ-UI-03,
+    REQ-UI-08, REQ-UI-10, REQ-DIAN-06, SCN-DIAN-07).
+
+    Layout:
+      * Row 0 — Header (title + "Actualizar" button + sync mode badge).
+      * Row 1 — Resoluciones activas card.
+      * Row 2 — Certificado card (with expiry warning badge if ≤30d).
+      * Row 3 — Last transmission card (color-coded badge).
+      * Row 4 — Sync state card (queue depth + last sync + sync mode).
+      * Row 5 — Action buttons (Reintentar / Anular último).
+      * Row 6 — Contingency-mode badge (visible only when in contingency).
+
+    Polling: the VM owns a 5s timer that calls RefreshAsync. The
+    View starts the timer on Loaded and stops it on Unloaded so
+    the panel only polls while visible.
+
+    Touch targets ≥44 dp per SCN-UI-11.
+  -->
+  <Grid Padding="24">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <!-- Header. -->
+    <Grid Grid.Row="0" ColumnSpacing="16" Margin="0,0,0,16">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <TextBlock Text="DIAN — Estado"
+                 FontSize="24"
+                 FontWeight="SemiBold"
+                 VerticalAlignment="Center"
+                 AutomationProperties.AutomationId="DianTitle" />
+
+      <Border Grid.Column="1"
+              Background="{x:Bind ViewModel.SyncMode, Mode=OneWay, Converter={StaticResource SyncModeToColorConverter}, FallbackValue=Green}"
+              CornerRadius="12"
+              Padding="12,4,12,4"
+              VerticalAlignment="Center"
+              AutomationProperties.Name="Indicador de modo de sincronización">
+        <TextBlock Text="{x:Bind ViewModel.SyncMode, Mode=OneWay}"
+                   Foreground="White"
+                   FontSize="12" />
+      </Border>
+
+      <Button Grid.Column="2"
+              Content="Actualizar"
+              MinHeight="44"
+              Command="{x:Bind ViewModel.RefreshCommand}"
+              AutomationProperties.AutomationId="DianRefreshButton" />
+    </Grid>
+
+    <!-- Resoluciones card. -->
+    <Border Grid.Row="1"
+            BorderBrush="{ThemeResource SystemAccentColor}"
+            BorderThickness="1"
+            CornerRadius="4"
+            Padding="16"
+            Margin="0,0,0,12">
+      <StackPanel Spacing="4">
+        <TextBlock Text="Resoluciones activas"
+                   FontSize="14"
+                   Opacity="0.7"
+                   AutomationProperties.AutomationId="DianActiveResolucionesLabel" />
+        <TextBlock FontSize="28"
+                   FontWeight="SemiBold"
+                   Text="{x:Bind ViewModel.ActiveResolucionesCount, Mode=OneWay}"
+                   AutomationProperties.AutomationId="DianActiveResolucionesCount" />
+      </StackPanel>
+    </Border>
+
+    <!-- Certificado card. -->
+    <Border Grid.Row="2"
+            BorderBrush="{ThemeResource SystemAccentColor}"
+            BorderThickness="1"
+            CornerRadius="4"
+            Padding="16"
+            Margin="0,0,0,12">
+      <StackPanel Spacing="4">
+        <TextBlock Text="Certificado"
+                   FontSize="14"
+                   Opacity="0.7"
+                   AutomationProperties.AutomationId="DianCertificateLabel" />
+        <TextBlock FontSize="20"
+                   FontWeight="SemiBold"
+                   Text="{x:Bind ViewModel.CertificatesExpiringIn30Days, Mode=OneWay}"
+                   AutomationProperties.AutomationId="DianCertificatesExpiringCount" />
+        <TextBlock FontSize="12"
+                   Opacity="0.7"
+                   Text="certificado(s) expira(n) en los próximos 30 días."
+                   AutomationProperties.AutomationId="DianCertificatesExpiringHelp" />
+      </StackPanel>
+    </Border>
+
+    <!-- Last transmission card. -->
+    <Border Grid.Row="3"
+            BorderBrush="{ThemeResource SystemAccentColor}"
+            BorderThickness="1"
+            CornerRadius="4"
+            Padding="16"
+            Margin="0,0,0,12">
+      <Grid ColumnSpacing="16">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <StackPanel Grid.Column="0" Spacing="4">
+          <TextBlock Text="Última transmisión"
+                     FontSize="14"
+                     Opacity="0.7"
+                     AutomationProperties.AutomationId="DianLastTransmissionLabel" />
+          <TextBlock FontSize="16"
+                     FontWeight="SemiBold"
+                     Text="{x:Bind ViewModel.LastTransmissionResultMessage, Mode=OneWay}"
+                     AutomationProperties.AutomationId="DianLastTransmissionMessage" />
+        </StackPanel>
+        <Border Grid.Column="1"
+                Background="{x:Bind ViewModel.LastTransmissionBadgeColor, Mode=OneWay, FallbackValue=Gray}"
+                CornerRadius="12"
+                Padding="12,4,12,4"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="Estado de última transmisión">
+          <TextBlock Foreground="White"
+                     FontSize="12"
+                     Text="{x:Bind ViewModel.LastTransmissionResultCode, Mode=OneWay}" />
+        </Border>
+      </Grid>
+    </Border>
+
+    <!-- Sync state card. -->
+    <Border Grid.Row="4"
+            BorderBrush="{ThemeResource SystemAccentColor}"
+            BorderThickness="1"
+            CornerRadius="4"
+            Padding="16"
+            Margin="0,0,0,12">
+      <Grid ColumnSpacing="16">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <StackPanel Grid.Column="0" Spacing="4">
+          <TextBlock Text="Cola de sincronización"
+                     FontSize="14"
+                     Opacity="0.7" />
+          <TextBlock FontSize="20"
+                     FontWeight="SemiBold"
+                     Text="{x:Bind ViewModel.SyncQueueDepth, Mode=OneWay}"
+                     AutomationProperties.AutomationId="DianSyncQueueDepth" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Spacing="4">
+          <TextBlock Text="Última sincronización"
+                     FontSize="14"
+                     Opacity="0.7" />
+          <TextBlock FontSize="20"
+                     FontWeight="SemiBold"
+                     Text="{x:Bind ViewModel.LastSyncAt, Mode=OneWay, Converter={StaticResource DateEsCoConverter}, FallbackValue=Nunca}"
+                     AutomationProperties.AutomationId="DianLastSyncAt" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Action buttons. -->
+    <StackPanel Grid.Row="5" Orientation="Horizontal" Spacing="12" Margin="0,8,0,8">
+      <Button Content="Reintentar"
+              MinHeight="44"
+              Command="{x:Bind ViewModel.RetryLastRejectedCommand}"
+              AutomationProperties.AutomationId="DianRetryButton" />
+      <Button Content="Anular último"
+              MinHeight="44"
+              Command="{x:Bind ViewModel.VoidLastRejectedCommand}"
+              AutomationProperties.AutomationId="DianVoidButton" />
+      <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
+                 VerticalAlignment="Center"
+                 Margin="16,0,0,0"
+                 Opacity="0.7"
+                 AutomationProperties.AutomationId="DianStatusMessage" />
+    </StackPanel>
+
+    <!-- Contingency badge (visible only when active). -->
+    <Border Grid.Row="6"
+            Background="OrangeRed"
+            CornerRadius="12"
+            Padding="16,8,16,8"
+            HorizontalAlignment="Left"
+            Margin="0,8,0,0"
+            Visibility="{x:Bind ViewModel.IsInContingencyMode, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
+            AutomationProperties.Name="Indicador de modo contingencia">
+      <TextBlock Text="Modo contingencia activado"
+                 Foreground="White"
+                 FontWeight="SemiBold"
+                 AutomationProperties.AutomationId="DianContingencyBadge" />
+    </Border>
+  </Grid>
+</Page>
