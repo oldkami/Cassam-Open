@@ -95,4 +95,14 @@
     </Content>
   </ItemGroup>
 
+  <!--
+    Microsoft.Extensions.Hosting is required for the
+    Host.CreateDefaultBuilder + IHost wiring in App.xaml.cs.
+    Uno SDK 6.5 does not pull this package in transitively so
+    we add it explicitly (mirrors Cassam.Ui.Tests.csproj).
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.1" />
+  </ItemGroup>
+
 </Project>

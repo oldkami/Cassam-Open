@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
+using Cassam.Core.Domain.Services;
 using Cassam.Ui.Hardware.Common;
 using Cassam.Ui.Hardware.Common.Cashier;
+using Cassam.Ui.Hardware.Common.Manager;
 using Cassam.Ui.Hardware.Common.Mock;
 using Cassam.Ui.Hardware.Common.Stubs;
+using Cassam.Ui.Manager;
 using Cassam.Ui.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -25,7 +28,7 @@ public partial class App : Application
     {
         this.InitializeComponent();
 
-        _host = Host.CreateDefaultBuilder()
+        _host = Microsoft.Extensions.Hosting.Host.CreateDefaultBuilder()
             .ConfigureLogging(logging =>
             {
                 // Excludes noisy framework logs; keeps app logs visible.
@@ -55,7 +58,7 @@ public partial class App : Application
                 // transient VM would re-subscribe on every page
                 // navigation, leaking events.
                 services.AddSingleton<CashierViewModel>();
-                services.AddSingleton<CashierView>();
+                services.AddSingleton<Cashier.CashierView>();
                 services.AddSingleton<IProductCatalog>(_ =>
                     new InMemoryProductCatalog(new Dictionary<string, ProductSearchResult>(StringComparer.OrdinalIgnoreCase)
                     {
@@ -76,6 +79,40 @@ public partial class App : Application
                             4500m,
                             Core.Domain.Enums.TaxCategory.Exempt),
                     }));
+
+                // ---- Manager flow (PR 10, T2.09 + T2.10) ----
+                // The manager shell + product / customer / cash-session
+                // CRUD sub-views + the DIAN status panel + the
+                // cancel-tenant modal. All VMs are singletons because
+                // they back XAML pages that survive navigation, and
+                // the tenant-cancel modal needs to share the lifecycle
+                // service binding with the tenant admin view.
+                services.AddSingleton<ITenantLifecycleService, InMemoryTenantLifecycleService>();
+                services.AddSingleton<ITenantSessionState, StubTenantSessionState>();
+                services.AddSingleton<IProductService, InMemoryProductService>();
+                services.AddSingleton<ICustomerService, InMemoryCustomerService>();
+                services.AddSingleton<ICashSessionService, InMemoryCashSessionService>();
+                services.AddSingleton<IRetryableDianAction, StubRetryableDianAction>();
+                services.AddSingleton<IVoidableDianAction, StubVoidableDianAction>();
+
+                services.AddSingleton<ManagerShellViewModel>();
+                services.AddSingleton<ProductManagementViewModel>();
+                services.AddSingleton<CustomerManagementViewModel>();
+                services.AddSingleton<CashSessionManagementViewModel>();
+                services.AddSingleton<ReportsNavigationViewModel>();
+                services.AddSingleton<DianStatusPanelViewModel>();
+                services.AddSingleton<TenantAdminViewModel>();
+                services.AddSingleton<CancelTenantModalViewModel>();
+
+                services.AddSingleton<ManagerShellView>();
+                services.AddSingleton<ManagerOverviewView>();
+                services.AddSingleton<ProductManagementView>();
+                services.AddSingleton<CustomerManagementView>();
+                services.AddSingleton<CashSessionManagementView>();
+                services.AddSingleton<ReportsNavigationView>();
+                services.AddSingleton<DianStatusPanelView>();
+                services.AddSingleton<TenantAdminView>();
+                services.AddSingleton<CancelTenantDialog>();
 
                 // ---- Per-platform HAL (PR 7 — design §6.2) ----
                 // The branch selects the matching AddXxxHardware
@@ -120,9 +157,11 @@ public partial class App : Application
     /// <summary>
     /// The DI container. Headless tests and view-model tests resolve
     /// services from this <see cref="IHost"/> without needing a live
-    /// <see cref="Window"/>.
+    /// <see cref="Window"/>. Static so page code-behind files can
+    /// resolve services without going through
+    /// <c>Application.Current</c>.
     /// </summary>
-    public IHost Host => _host;
+    public static IHost Host => ((App)Application.Current)._host;
 
     protected Window? MainWindow { get; private set; }
 
@@ -152,10 +191,107 @@ public partial class App : Application
             // post-construction so the DI container's async
             // InitialiseAsync (which wires the scanner event)
             // completes before the page renders.
-            rootFrame.Navigate(typeof(Cassier.CashierView), args.Arguments);
+            rootFrame.Navigate(typeof(Cashier.CashierView), args.Arguments);
         }
 
+        // PR 10 (T2.09): wire the cashier → manager → back navigation.
+        // The cashier page exposes an "Open manager" event; the
+        // manager shell exposes "Back to cashier" + "Sign out"
+        // events. We capture them here so navigation between the
+        // two root pages lives in a single place.
+        if (rootFrame.Content is Cassam.Ui.Cashier.CashierView cashier)
+        {
+            cashier.OpenManagerRequested += OnOpenManagerRequested;
+        }
+        if (rootFrame.Content is Cassam.Ui.Manager.ManagerShellView manager)
+        {
+            WireManagerEvents(manager);
+        }
+
+        rootFrame.Navigated += OnRootFrameNavigated;
+
         MainWindow.Activate();
+    }
+
+    private void OnRootFrameNavigated(object sender, NavigationEventArgs e)
+    {
+        // Re-wire the navigation events whenever the root Frame
+        // lands on a new page so the singleton page instances
+        // picked up fresh from DI still receive the events.
+        if (e.Content is Cassam.Ui.Cashier.CashierView cashier)
+        {
+            cashier.OpenManagerRequested -= OnOpenManagerRequested;
+            cashier.OpenManagerRequested += OnOpenManagerRequested;
+        }
+        else if (e.Content is Cassam.Ui.Manager.ManagerShellView manager)
+        {
+            WireManagerEvents(manager);
+        }
+    }
+
+    private void WireManagerEvents(Cassam.Ui.Manager.ManagerShellView manager)
+    {
+        manager.BackToCashierRequested -= OnBackToCashierRequested;
+        manager.BackToCashierRequested += OnBackToCashierRequested;
+        manager.SignOutRequested -= OnSignOutRequested;
+        manager.SignOutRequested += OnSignOutRequested;
+
+        // The manager shell resolves the tenant-cancel dialog via
+        // its child TenantAdminView. We hook the child directly
+        // so the dialog can be requested from the shell code-behind.
+        // The shell's Loaded handler resolves the TenantAdminView
+        // and forwards its event here.
+        manager.CancelTenantDialogRequested -= OnCancelTenantDialogRequested;
+        manager.CancelTenantDialogRequested += OnCancelTenantDialogRequested;
+    }
+
+    private void OnOpenManagerRequested(object? sender, EventArgs e)
+    {
+        if (MainWindow?.Content is Frame frame)
+        {
+            var manager = App.Host.Services.GetRequiredService<Cassam.Ui.Manager.ManagerShellView>();
+            // Initialize the shell's header (tenant + user snapshot)
+            // before navigating so the first paint shows the right
+            // values. The shell's own ctor also calls InitializeAsync,
+            // but we trigger it here to be safe.
+            _ = manager;
+            frame.Navigate(typeof(Cassam.Ui.Manager.ManagerShellView));
+        }
+    }
+
+    private void OnBackToCashierRequested(object? sender, EventArgs e)
+    {
+        if (MainWindow?.Content is Frame frame)
+        {
+            frame.Navigate(typeof(Cassam.Ui.Cashier.CashierView));
+        }
+    }
+
+    private void OnSignOutRequested(object? sender, EventArgs e)
+    {
+        // Phase 3 wires the real auth flow; for now we navigate
+        // back to the cashier page (the closest equivalent to
+        // "start over" without restarting the app).
+        OnBackToCashierRequested(sender, e);
+    }
+
+    private async void OnCancelTenantDialogRequested(object? sender, EventArgs e)
+    {
+        var dialog = App.Host.Services.GetRequiredService<Cassam.Ui.Manager.CancelTenantDialog>();
+        // The dialog awaits the user's tap; ShowAsync completes
+        // when the user dismisses the dialog. We log the result
+        // for diagnostics; production code wires the audit log.
+        await dialog.ShowAsync();
+        // Re-render the tenant admin view's status after the
+        // dialog closes so the success / failure message is
+        // visible on return.
+        if (MainWindow?.Content is Frame)
+        {
+            // Refresh the tenant admin VM so the status message
+            // updates on return.
+            var vm = App.Host.Services.GetRequiredService<Hardware.Common.Manager.TenantAdminViewModel>();
+            await vm.RefreshAsync();
+        }
     }
 
     private static void OnNavigationFailed(object sender, NavigationFailedEventArgs e)

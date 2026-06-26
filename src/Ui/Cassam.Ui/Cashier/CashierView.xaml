@@ -41,13 +41,14 @@
       <RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
 
-    <!-- Row 0: header. Logo + cashier + station + offline/DIAN banners. -->
+    <!-- Row 0: header. Logo + cashier + station + offline/DIAN banners + manager button. -->
     <Grid Grid.Row="0"
           Padding="24,16,24,16"
           ColumnSpacing="16">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="Auto" />
       </Grid.ColumnDefinitions>
@@ -99,6 +100,16 @@
                    Foreground="White"
                    FontSize="12" />
       </Border>
+
+      <!-- PR 10: "Modo manager" button. Triggers navigation to the manager shell.
+           Visible to all cashier users for the Phase 2 demo; Phase 3 ties the
+           Visibility to the Keycloak role binding. -->
+      <Button Grid.Column="4"
+              Content="Modo manager"
+              MinHeight="44"
+              VerticalAlignment="Center"
+              Click="OnOpenManagerClicked"
+              AutomationProperties.AutomationId="CashierOpenManager" />
     </Grid>
 
     <!-- Row 1: status banner (last scan / no-product message) -->
