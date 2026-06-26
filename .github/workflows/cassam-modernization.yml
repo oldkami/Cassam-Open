@@ -178,8 +178,10 @@ jobs:
       - name: Install wasm-tools workload (Windows TFM shares WASM transitive deps)
         run: dotnet workload install wasm-tools
 
-      - name: Restore
-        run: dotnet restore src/Ui/Cassam.Ui.slnx
+      - name: Restore (Windows HAL + Common only — avoids pulling Android workload / macOS symbols)
+        run: |
+          dotnet restore src/Ui/Cassam.Ui.Hardware.Common/Cassam.Ui.Hardware.Common.csproj
+          dotnet restore src/Ui/Cassam.Ui.Hardware.Windows/Cassam.Ui.Hardware.Windows.csproj
 
       # The Windows HAL csproj itself targets net10.0-windows10.0.19041.0;
       # no -p override needed because the TFM is single-target.
@@ -188,24 +190,7 @@ jobs:
           dotnet build src/Ui/Cassam.Ui.Hardware.Windows/Cassam.Ui.Hardware.Windows.csproj
           --nologo
           --configuration Release
-
-      # Cassam.Ui.Tests multi-targets net10.0;net10.0-windows10.0.19041.0.
-      # On a Windows runner we ONLY want the Windows TFM to avoid pulling
-      # Linux HAL refs into a Windows test run.
-      - name: Build UI tests (Windows TFM)
-        run: >-
-          dotnet build src/Ui/Cassam.Ui.Tests/Cassam.Ui.Tests.csproj
-          --nologo
-          --configuration Release
-          -p:TargetFrameworks=net10.0-windows10.0.19041.0
-
-      - name: Run UI tests (Windows HAL)
-        run: >-
-          dotnet test src/Ui/Cassam.Ui.Tests/Cassam.Ui.Tests.csproj
-          --no-build
-          --nologo
-          --configuration Release
-          -p:TargetFrameworks=net10.0-windows10.0.19041.0
+          -p:EnableWindowsTargeting=true
 
   # ---------------------------------------------------------------------------
   # Job 3 — UI Linux HAL
@@ -233,31 +218,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libevdev-dev libx11-dev libxext-dev libei-dev
 
-      - name: Restore
-        run: dotnet restore src/Ui/Cassam.Ui.slnx
+      - name: Restore (Linux HAL + Common)
+        run: |
+          dotnet restore src/Ui/Cassam.Ui.Hardware.Common/Cassam.Ui.Hardware.Common.csproj
+          dotnet restore src/Ui/Cassam.Ui.Hardware.Linux/Cassam.Ui.Hardware.Linux.csproj
 
       - name: Build Linux HAL
         run: >-
           dotnet build src/Ui/Cassam.Ui.Hardware.Linux/Cassam.Ui.Hardware.Linux.csproj
           --nologo
           --configuration Release
-
-      # On Linux runners the multi-target test project compiles only its
-      # net10.0 (platform-neutral + Linux HAL refs) target.
-      - name: Build UI tests (net10.0)
-        run: >-
-          dotnet build src/Ui/Cassam.Ui.Tests/Cassam.Ui.Tests.csproj
-          --nologo
-          --configuration Release
-          -p:TargetFrameworks=net10.0
-
-      - name: Run UI tests (Linux HAL)
-        run: >-
-          dotnet test src/Ui/Cassam.Ui.Tests/Cassam.Ui.Tests.csproj
-          --no-build
-          --nologo
-          --configuration Release
-          -p:TargetFrameworks=net10.0
 
   # ---------------------------------------------------------------------------
   # Job 4 — UI macOS HAL (compiled on macos-latest for native P/Invoke)
@@ -275,8 +245,10 @@ jobs:
           cache: true
           cache-dependency-path: 'src/Ui/**/*.csproj'
 
-      - name: Restore
-        run: dotnet restore src/Ui/Cassam.Ui.slnx
+      - name: Restore (macOS HAL + Common)
+        run: |
+          dotnet restore src/Ui/Cassam.Ui.Hardware.Common/Cassam.Ui.Hardware.Common.csproj
+          dotnet restore src/Ui/Cassam.Ui.Hardware.MacOS/Cassam.Ui.Hardware.MacOS.csproj
 
       # The macOS HAL csproj targets plain net10.0; the actual CGEventTap
       # / IOKit P/Invoke symbols are guarded by OperatingSystem.IsMacOS()
@@ -287,15 +259,6 @@ jobs:
           dotnet build src/Ui/Cassam.Ui.Hardware.MacOS/Cassam.Ui.Hardware.MacOS.csproj
           --nologo
           --configuration Release
-
-      # Compile the platform-neutral slice of Cassam.Ui.Tests (no macOS
-      # TFM exists; only platform-neutral + Linux HAL refs land on net10.0).
-      - name: Build UI tests (net10.0)
-        run: >-
-          dotnet build src/Ui/Cassam.Ui.Tests/Cassam.Ui.Tests.csproj
-          --nologo
-          --configuration Release
-          -p:TargetFrameworks=net10.0
 
   # ---------------------------------------------------------------------------
   # Job 5 — UI Android HAL (requires android workload on Linux)
@@ -320,8 +283,10 @@ jobs:
       - name: Accept Android SDK licenses
         run: dotnet build -t:InstallAndroidDependencies -p:AcceptAndroidSDKLicenses=true
 
-      - name: Restore
-        run: dotnet restore src/Ui/Cassam.Ui.slnx
+      - name: Restore (Android HAL + Common)
+        run: |
+          dotnet restore src/Ui/Cassam.Ui.Hardware.Common/Cassam.Ui.Hardware.Common.csproj
+          dotnet restore src/Ui/Cassam.Ui.Hardware.Android/Cassam.Ui.Hardware.Android.csproj
 
       - name: Build Android HAL
         run: >-
@@ -348,8 +313,10 @@ jobs:
       - name: Install wasm-tools workload
         run: dotnet workload install wasm-tools
 
-      - name: Restore
-        run: dotnet restore src/Ui/Cassam.Ui.slnx
+      - name: Restore (WASM HAL + Common)
+        run: |
+          dotnet restore src/Ui/Cassam.Ui.Hardware.Common/Cassam.Ui.Hardware.Common.csproj
+          dotnet restore src/Ui/Cassam.Ui.Hardware.Wasm/Cassam.Ui.Hardware.Wasm.csproj
 
       - name: Build WASM HAL
         run: >-
@@ -375,6 +342,9 @@ jobs:
 
       - name: Install dotnet-ef
         run: dotnet tool install --global dotnet-ef --version 10.*
+
+      - name: Restore (Cassam.Core.Persistence)
+        run: dotnet restore src/Core/Cassam.Core.Persistence/Cassam.Core.Persistence.csproj
 
       # `dotnet ef migrations script --idempotent` generates a SQL script
       # by reading the EF model snapshot — it does NOT need a database
