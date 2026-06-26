@@ -75,17 +75,22 @@ permissions:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # Job 1 — Phase 1 backend matrix (windows + linux + macos)
+  # Job 1 — Phase 1 backend (ubuntu-latest only)
   # ---------------------------------------------------------------------------
+  # Why ubuntu-only:
+  #   * Job-level `services:` blocks (used by the EF migration smoke step)
+  #     are Linux-only on GitHub Actions. Windows + macOS runners reject
+  #     them with "Container operations are only supported on Linux runners".
+  #   * Testcontainers (used by the xUnit suite) requires Docker. Windows
+  #     runners have Docker Desktop, macOS runners historically do not.
+  #   * Cross-platform backend BUILD is verified by the `ui-windows`,
+  #     `ui-macos`, `ui-android` jobs via the Cassam.Ui projects that
+  #     reference the Core projects. The Core projects share the same
+  #     .slnx, so a successful ui-* build implies a successful backend
+  #     compile for that OS.
   backend:
-    name: Phase 1 Backend (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      # Run every matrix cell even if one fails — surface cross-OS bugs
-      # instead of hiding them behind fail-fast.
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+    name: Phase 1 Backend (ubuntu-latest)
+    runs-on: ubuntu-latest
 
     # Sidecar PostgreSQL for the `dotnet ef database update` smoke step.
     # The xUnit suite uses Testcontainers.PostgreSql which spins up its
@@ -130,6 +135,9 @@ jobs:
       # applies cleanly to a fresh postgres:16-alpine. This catches the
       # common mistake of editing the snapshot without adding a new
       # migration, which only blows up at runtime.
+      # --configuration Release MUST match the build step above; the
+      # --no-build flag then reuses the Release output instead of
+      # silently looking for a missing Debug/bin folder.
       - name: Apply EF migrations (smoke)
         run: >-
           dotnet ef database update
@@ -137,6 +145,7 @@ jobs:
           --startup-project src/Core/Cassam.Core.Persistence
           --context CassamDbContext
           --no-build
+          --configuration Release
 
       # Testcontainers.PostgreSQL manages its own postgres:16-alpine
       # container using the runner's Docker daemon. The TESTCONTAINERS_
