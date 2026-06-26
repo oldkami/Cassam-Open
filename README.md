@@ -1,5 +1,11 @@
 # Cassam Modernization
 
+<!--
+  CI status badge. Replace `cassam/cassam` with the actual
+  GitHub `<OWNER>/<REPO>` slug once the repo is published.
+-->
+[![Cassam Modernization CI](https://github.com/cassam/cassam/actions/workflows/cassam-modernization.yml/badge.svg)](https://github.com/cassam/cassam/actions/workflows/cassam-modernization.yml)
+
 > **Branch**: `main` (initial bootstrap) · **Tracker**: `feature/cassam-modernization` · **First PR**: `feature/cassam-modernization/pr-01-bootstrap-foundation`
 
 Cassam is a Colombian point-of-sale (POS) / inventory / invoicing desktop application
@@ -60,6 +66,25 @@ remain on disk as read-only references for migration.
 dotnet build Cassam.sln
 dotnet test Cassam.sln
 ```
+
+## Continuous Integration
+
+The [.github/workflows/cassam-modernization.yml](.github/workflows/cassam-modernization.yml)
+workflow validates every PR against the per-platform matrix required by
+design §14.3:
+
+| Job | OS | Validates |
+|-----|----|-----------|
+| `backend` | ubuntu-latest · windows-latest · macos-latest | Phase 1 build, EF migration apply, xUnit suite (Testcontainers) |
+| `ui-windows` | windows-latest | Windows HAL + UI tests (Windows TFM) |
+| `ui-linux` | ubuntu-latest | Linux HAL + UI tests (net10.0) |
+| `ui-macos` | macos-latest | macOS HAL + UI tests build |
+| `ui-android` | ubuntu-latest | Android HAL (android workload) |
+| `ui-wasm` | ubuntu-latest | WebAssembly HAL (wasm-tools workload) |
+| `migration-drift` | ubuntu-latest | `dotnet ef migrations script --idempotent` is non-empty |
+
+Branch protection on `feature/cassam-modernization` should require the
+`backend` matrix plus the relevant UI job before merge.
 
 ## Documentation
 

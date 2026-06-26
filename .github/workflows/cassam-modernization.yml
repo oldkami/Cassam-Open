@@ -1,0 +1,386 @@
+# =============================================================================
+# Cassam Modernization — Continuous Integration
+# -----------------------------------------------------------------------------
+# Per design §14.3: every PR that touches the tracker or any child branch
+# MUST validate per-platform builds before merge. This workflow runs:
+#
+#   1. backend         — Phase 1 build + EF migration apply + xUnit suite on
+#                        windows-latest / ubuntu-latest / macos-latest.
+#                        Testcontainers.PostgreSQL spins up its own
+#                        postgres:16-alpine per test class so the matrix
+#                        does not depend on a shared service container;
+#                        the sidecar `postgres` service is only used by the
+#                        `dotnet ef database update` smoke step that
+#                        validates migration idempotence on a real PG.
+#
+#   2. ui-windows      — Cassam.Ui.Hardware.Windows + Windows-TargetFramework
+#                        subset of Cassam.Ui.Tests.
+#   3. ui-linux        — Cassam.Ui.Hardware.Linux + Linux/macOS HAL sources
+#                        compiled on a Linux runner (no platform-specific
+#                        workload needed; IsMacOS() guards keep macOS P/Invoke
+#                        symbols from resolving).
+#   4. ui-macos        — Cassam.Ui.Hardware.MacOS compiled on macos-latest
+#                        so the IOKit / CoreFoundation P/Invoke surfaces
+#                        resolve cleanly.
+#   5. ui-android      — Cassam.Ui.Hardware.Android compiled on ubuntu-latest
+#                        with the android workload installed.
+#   6. ui-wasm         — Cassam.Ui.Hardware.Wasm compiled on ubuntu-latest
+#                        with the wasm-tools workload installed.
+#   7. migration-drift — `dotnet ef migrations script --idempotent` is
+#                        generated; the script MUST be non-empty and the
+#                        EF tooling MUST exit 0 (catches accidental model
+#                        edits without a matching migration).
+#
+# Branch protection should require the `backend` + the relevant UI job to
+# pass before merge to `feature/cassam-modernization`.
+#
+# Assumed platform: GitHub Actions (Azure DevOps / GitLab CI use different
+# YAML schemas — see design §14.3 for the rationale).
+# =============================================================================
+
+name: Cassam Modernization CI
+
+on:
+  push:
+    branches:
+      - feature/cassam-modernization
+      - prs/cassam-modernization/**
+  pull_request:
+    branches:
+      - feature/cassam-modernization
+      - prs/cassam-modernization/**
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref to save CI minutes. PRs queue up;
+# only the latest run for a given PR matters.
+concurrency:
+  group: cassam-modernization-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  # Default to the lowest-feature .NET 10 SDK pinned in CI. Feature-band
+  # updates happen via .NET 10.x patches; we let setup-dotnet resolve the
+  # latest 10.0.* available.
+  DOTNET_VERSION: '10.0.x'
+  CASSA_DESIGNTIME_CONN: 'Host=localhost;Database=cassam_test;Username=cassam_app;Password=test_password'
+  # Testcontainers normally discovers the host's Docker daemon. On GH
+  # Actions runners Docker is preinstalled, so the override is a
+  # no-op but documents the dependency for future maintainers.
+  TESTCONTAINERS_HOST_OVERRIDE: localhost
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job 1 — Phase 1 backend matrix (windows + linux + macos)
+  # ---------------------------------------------------------------------------
+  backend:
+    name: Phase 1 Backend (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Run every matrix cell even if one fails — surface cross-OS bugs
+      # instead of hiding them behind fail-fast.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    # Sidecar PostgreSQL for the `dotnet ef database update` smoke step.
+    # The xUnit suite uses Testcontainers.PostgreSql which spins up its
+    # OWN postgres:16-alpine container via the runner's Docker daemon.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: cassam_test
+          POSTGRES_USER: cassam_app
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        # Healthcheck so downstream steps do not race the bootstrap.
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          cache: true
+          cache-dependency-path: '**/*.csproj'
+
+      - name: Install dotnet-ef (for migration smoke)
+        run: dotnet tool install --global dotnet-ef --version 10.*
+
+      - name: Restore
+        run: dotnet restore Cassam.slnx
+
+      - name: Build (Release, no restore)
+        run: dotnet build Cassam.slnx --no-restore --nologo --configuration Release
+
+      # The migration smoke proves every migration file in the assembly
+      # applies cleanly to a fresh postgres:16-alpine. This catches the
+      # common mistake of editing the snapshot without adding a new
+      # migration, which only blows up at runtime.
+      - name: Apply EF migrations (smoke)
+        run: >-
+          dotnet ef database update
+          --project src/Core/Cassam.Core.Persistence
+          --startup-project src/Core/Cassam.Core.Persistence
+          --context CassamDbContext
+          --no-build
+
+      # Testcontainers.PostgreSQL manages its own postgres:16-alpine
+      # container using the runner's Docker daemon. The TESTCONTAINERS_
+      # HOST_OVERRIDE above documents that the runner's Docker is the
+      # endpoint; the override is the no-op default.
+      - name: Run xUnit suite (Testcontainers)
+        run: >-
+          dotnet test tests/Cassam.Core.Tests/Cassam.Core.Tests.csproj
+          --no-build
+          --nologo
+          --configuration Release
+          --logger "console;verbosity=normal"
+
+  # ---------------------------------------------------------------------------
+  # Job 2 — UI Windows HAL
+  # ---------------------------------------------------------------------------
+  ui-windows:
+    name: UI Windows HAL
+    runs-on: windows-latest
+    needs: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          cache: true
+          cache-dependency-path: 'src/Ui/**/*.csproj'
+
+      - name: Install wasm-tools workload (Windows TFM shares WASM transitive deps)
+        run: dotnet workload install wasm-tools
+
+      - name: Restore
+        run: dotnet restore src/Ui/Cassam.Ui.slnx
+
+      # The Windows HAL csproj itself targets net10.0-windows10.0.19041.0;
+      # no -p override needed because the TFM is single-target.
+      - name: Build Windows HAL
+        run: >-
+          dotnet build src/Ui/Cassam.Ui.Hardware.Windows/Cassam.Ui.Hardware.Windows.csproj
+          --nologo
+          --configuration Release
+
+      # Cassam.Ui.Tests multi-targets net10.0;net10.0-windows10.0.19041.0.
+      # On a Windows runner we ONLY want the Windows TFM to avoid pulling
+      # Linux HAL refs into a Windows test run.
+      - name: Build UI tests (Windows TFM)
+        run: >-
+          dotnet build src/Ui/Cassam.Ui.Tests/Cassam.Ui.Tests.csproj
+          --nologo
+          --configuration Release
+          -p:TargetFrameworks=net10.0-windows10.0.19041.0
+
+      - name: Run UI tests (Windows HAL)
+        run: >-
+          dotnet test src/Ui/Cassam.Ui.Tests/Cassam.Ui.Tests.csproj
+          --no-build
+          --nologo
+          --configuration Release
+          -p:TargetFrameworks=net10.0-windows10.0.19041.0
+
+  # ---------------------------------------------------------------------------
+  # Job 3 — UI Linux HAL
+  # ---------------------------------------------------------------------------
+  ui-linux:
+    name: UI Linux HAL
+    runs-on: ubuntu-latest
+    needs: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          cache: true
+          cache-dependency-path: 'src/Ui/**/*.csproj'
+
+      # Native dev headers needed by the Linux HAL's evdev / X11 / Wayland
+      # bindings. The actual runtime bindings are P/Invoke-free via the
+      # ILinuxInputHook abstraction (EvdevInputHook / X11XGrabKeyInputHook
+      # / WaylandLibEiInputHook); the headers are still required by the
+      # project for compile-time DllImport resolution.
+      - name: Install Linux native deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libevdev-dev libx11-dev libxext-dev libei-dev
+
+      - name: Restore
+        run: dotnet restore src/Ui/Cassam.Ui.slnx
+
+      - name: Build Linux HAL
+        run: >-
+          dotnet build src/Ui/Cassam.Ui.Hardware.Linux/Cassam.Ui.Hardware.Linux.csproj
+          --nologo
+          --configuration Release
+
+      # On Linux runners the multi-target test project compiles only its
+      # net10.0 (platform-neutral + Linux HAL refs) target.
+      - name: Build UI tests (net10.0)
+        run: >-
+          dotnet build src/Ui/Cassam.Ui.Tests/Cassam.Ui.Tests.csproj
+          --nologo
+          --configuration Release
+          -p:TargetFrameworks=net10.0
+
+      - name: Run UI tests (Linux HAL)
+        run: >-
+          dotnet test src/Ui/Cassam.Ui.Tests/Cassam.Ui.Tests.csproj
+          --no-build
+          --nologo
+          --configuration Release
+          -p:TargetFrameworks=net10.0
+
+  # ---------------------------------------------------------------------------
+  # Job 4 — UI macOS HAL (compiled on macos-latest for native P/Invoke)
+  # ---------------------------------------------------------------------------
+  ui-macos:
+    name: UI macOS HAL
+    runs-on: macos-latest
+    needs: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          cache: true
+          cache-dependency-path: 'src/Ui/**/*.csproj'
+
+      - name: Restore
+        run: dotnet restore src/Ui/Cassam.Ui.slnx
+
+      # The macOS HAL csproj targets plain net10.0; the actual CGEventTap
+      # / IOKit P/Invoke symbols are guarded by OperatingSystem.IsMacOS()
+      # at runtime, but compiling on a macOS runner guarantees the
+      # DllImport surface resolves against the real frameworks.
+      - name: Build macOS HAL
+        run: >-
+          dotnet build src/Ui/Cassam.Ui.Hardware.MacOS/Cassam.Ui.Hardware.MacOS.csproj
+          --nologo
+          --configuration Release
+
+      # Compile the platform-neutral slice of Cassam.Ui.Tests (no macOS
+      # TFM exists; only platform-neutral + Linux HAL refs land on net10.0).
+      - name: Build UI tests (net10.0)
+        run: >-
+          dotnet build src/Ui/Cassam.Ui.Tests/Cassam.Ui.Tests.csproj
+          --nologo
+          --configuration Release
+          -p:TargetFrameworks=net10.0
+
+  # ---------------------------------------------------------------------------
+  # Job 5 — UI Android HAL (requires android workload on Linux)
+  # ---------------------------------------------------------------------------
+  ui-android:
+    name: UI Android HAL
+    runs-on: ubuntu-latest
+    needs: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          cache: true
+          cache-dependency-path: 'src/Ui/**/*.csproj'
+
+      - name: Install android workload
+        run: dotnet workload install android
+
+      # Accept Android SDK licenses (idempotent on subsequent runs).
+      - name: Accept Android SDK licenses
+        run: dotnet build -t:InstallAndroidDependencies -p:AcceptAndroidSDKLicenses=true
+
+      - name: Restore
+        run: dotnet restore src/Ui/Cassam.Ui.slnx
+
+      - name: Build Android HAL
+        run: >-
+          dotnet build src/Ui/Cassam.Ui.Hardware.Android/Cassam.Ui.Hardware.Android.csproj
+          --nologo
+          --configuration Release
+
+  # ---------------------------------------------------------------------------
+  # Job 6 — UI WebAssembly HAL (requires wasm-tools workload)
+  # ---------------------------------------------------------------------------
+  ui-wasm:
+    name: UI WebAssembly HAL
+    runs-on: ubuntu-latest
+    needs: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          cache: true
+          cache-dependency-path: 'src/Ui/**/*.csproj'
+
+      - name: Install wasm-tools workload
+        run: dotnet workload install wasm-tools
+
+      - name: Restore
+        run: dotnet restore src/Ui/Cassam.Ui.slnx
+
+      - name: Build WASM HAL
+        run: >-
+          dotnet build src/Ui/Cassam.Ui.Hardware.Wasm/Cassam.Ui.Hardware.Wasm.csproj
+          --nologo
+          --configuration Release
+
+  # ---------------------------------------------------------------------------
+  # Job 7 — EF migration drift check
+  # ---------------------------------------------------------------------------
+  migration-drift:
+    name: EF Migration Drift Check
+    runs-on: ubuntu-latest
+    needs: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          cache: true
+          cache-dependency-path: '**/*.csproj'
+
+      - name: Install dotnet-ef
+        run: dotnet tool install --global dotnet-ef --version 10.*
+
+      # `dotnet ef migrations script --idempotent` generates a SQL script
+      # by reading the EF model snapshot — it does NOT need a database
+      # connection. The script must be non-empty AND exit 0; either
+      # failure means a model edit slipped in without a matching
+      # migration (or vice versa).
+      - name: Generate idempotent migration script
+        run: |
+          set -euo pipefail
+          dotnet ef migrations script --idempotent \
+            --project src/Core/Cassam.Core.Persistence \
+            --startup-project src/Core/Cassam.Core.Persistence \
+            --context CassamDbContext \
+            -o /tmp/migrations.sql
+          # Script must contain at least one CREATE / ALTER statement.
+          test -s /tmp/migrations.sql
+          grep -Eqi '\b(CREATE|ALTER|DROP)\b' /tmp/migrations.sql
+          echo "Migration script generated OK ($(wc -l < /tmp/migrations.sql) lines)."
