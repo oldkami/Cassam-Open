@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      Per-platform HAL contract tests for Cassam.Ui.Hardware.Windows.
+
+      Why a separate project from Cassam.Ui.Tests:
+        * Cassam.Ui.Tests is now platform-neutral (only references
+          Cassam.Ui.Hardware.Common) so it can be restored + tested
+          on any CI runner without dragging in the Android workload
+          or Windows-only EnableWindowsTargeting flag (PR 9.6).
+        * The Windows HAL surface needs to compile against the
+          Windows TFM and the matching SDK. Putting these tests
+          in their own project keeps the test scope aligned with
+          the HAL project they exercise.
+        * The ui-windows CI job restores + builds this project on
+          windows-latest with EnableWindowsTargeting=true; nothing
+          else changes.
+
+      Run: `dotnet test src/Ui/Cassam.Ui.Hardware.Windows.Tests/Cassam.Ui.Hardware.Windows.Tests.csproj`
+    -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <UseWindowsForms>false</UseWindowsForms>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <RootNamespace>Cassam.Ui.Hardware.Windows.Tests</RootNamespace>
+    <AssemblyName>Cassam.Ui.Hardware.Windows.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="FluentAssertions" Version="6.12.1" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.1" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Cassam.Ui.Hardware.Common\Cassam.Ui.Hardware.Common.csproj" />
+    <ProjectReference Include="..\Cassam.Ui.Hardware.Windows\Cassam.Ui.Hardware.Windows.csproj" />
+  </ItemGroup>
+
+</Project>
