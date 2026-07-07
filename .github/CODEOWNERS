@@ -1,0 +1,9 @@
+# CODEOWNERS — Cassam Modernization
+# https://docs.github.com/en/repositories/managing-your-repository-for-collaborators/about-code-owners
+#
+# Single-owner project today. Listed so that branch protection's
+# `require_code_owner_reviews: true` will become a no-op (not block)
+# until additional owners are added.
+
+# Default owner for everything
+*       @oldkami

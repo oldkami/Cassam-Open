@@ -1,19 +1,65 @@
 # GitHub Branch Protection Setup
 
-> Status: **DOCUMENTED, NOT YET APPLIED** — requires a remote GitHub repository.
+> Status: ✅ **FULLY APPLIED** to `feature/cassam-modernization` on 2026-06-26 + updated 2026-07-07 with the `UI xUnit Suite (Mock-based)` check from PR 9.6. **All 8 required status checks are active.**
 
-This document captures the exact branch-protection settings required for the `cassam-modernization` change. Apply them **once the repository is published to GitHub** and **before any PR merges to `feature/cassam-modernization`**.
+This document captures the exact branch-protection settings required for the `cassam-modernization` change. They are now active on `https://github.com/oldkami/Cassam-Open` for the `feature/cassam-modernization` branch.
+
+## Current configuration (LIVE)
+
+8 required status checks:
+- `Phase 1 Backend (ubuntu-latest)`
+- `UI Linux HAL`
+- `UI Windows HAL`
+- `UI Android HAL`
+- `UI macOS HAL`
+- `UI WebAssembly HAL`
+- `UI xUnit Suite (Mock-based)` (added with PR 9.6)
+- `EF Migration Drift Check`
+
+Other settings: strict (branches must be up to date), enforce admins, required linear history, no force pushes, no deletions, restrictions: null (user repo).
 
 ## Why this matters
 
 Phase 2 ships hardware-integrated code (barcode scanners, ESC/POS printers, BT pairing, multi-platform UI). A bad merge without CI green could break the cashier flow for paying customers. Branch protection with required status checks is the safety net.
 
-## Prerequisites
+## How it was applied (historical record)
 
-1. The repository is published on GitHub (currently local-only at `C:\D\Cassam`)
-2. The `feature/cassam-modernization` branch is pushed to the remote
-3. The CI workflow at `.github/workflows/cassam-modernization.yml` has run at least once so GitHub knows the job names
-4. The user has admin access to the GitHub repo
+```powershell
+# 1. Generate JSON body
+$protection = @{
+  required_status_checks = @{ strict = $true; contexts = @(8 check names) }
+  required_pull_request_reviews = @{ dismiss_stale_reviews = $true; require_code_owner_reviews = $false; required_approving_review_count = 0 }
+  restrictions = $null
+  enforce_admins = $true
+  required_linear_history = $true
+  allow_force_pushes = $false
+  allow_deletions = $false
+  required_conversation_resolution = $false
+  block_creations = $false
+  lock_branch = $false
+}
+$json = $protection | ConvertTo-Json -Depth 10
+[System.IO.File]::WriteAllText("$env:TEMP\bp.json", $json, [System.Text.UTF8Encoding]::new($false))
+
+# 2. PUT to GitHub API
+gh api --method PUT -H "Accept: application/vnd.github+json" `
+  repos/oldkami/Cassam-Open/branches/feature/cassam-modernization/protection `
+  --input "$env:TEMP\bp.json"
+```
+
+### Common gotchas
+
+- **422 "restrictions weren't supplied"**: must include `restrictions: null` for user repos (not org)
+- **422 "Only organization repositories can have users and team restrictions"**: don't put users/teams in restrictions for user repos
+- **400 "Problems parsing JSON"**: BOM in JSON file — write with `UTF8Encoding.new($false)` (no BOM)
+- **Push rejected with "protected branch hook declined"**: new commit needs CI to pass before push. Open a PR instead.
+
+## Original prerequisites (satisfied)
+
+1. ✅ The repository is published on GitHub at `https://github.com/oldkami/Cassam-Open`
+2. ✅ The `feature/cassam-modernization` branch is pushed to the remote
+3. ✅ The CI workflow at `.github/workflows/cassam-modernization.yml` has run multiple times; GitHub knows the 8 job names
+4. ✅ The user (`oldkami`) has admin access to the GitHub repo
 
 ## Required status checks
 
