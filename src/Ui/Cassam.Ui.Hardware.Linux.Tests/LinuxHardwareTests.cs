@@ -1,19 +1,22 @@
-#if !WINDOWS
 using Cassam.Ui.Hardware.Common;
 using Cassam.Ui.Hardware.Linux;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-namespace Cassam.Ui.Tests.Hardware.Linux;
+namespace Cassam.Ui.Hardware.Linux.Tests;
 
 /// <summary>
-/// Contract tests for the Linux HAL surface. The whole file
-/// compiles on the platform-neutral <c>net10.0</c> target so the
-/// CI matrix runs it on every host. Tests that exercise the
-/// platform-only code paths (evdev / X11 / Wayland barcode
-/// scanner) use the <see cref="FakeInputHook"/> so they run on
-/// Windows / macOS CI runners without a Linux station.
+/// Contract tests for the Linux HAL surface. The whole project
+/// targets plain <c>net10.0</c> so it compiles on any CI runner
+/// without a Linux-specific workload. PR 9.6 moved these tests
+/// out of <c>Cassam.Ui.Tests</c> into this sibling test project
+/// so the cross-platform CI restore does not need to pull the
+/// Linux HAL reference on every host that runs <c>Cassam.Ui.Tests</c>.
+/// Tests that exercise platform-only code paths (evdev / X11 /
+/// Wayland barcode scanner) use the <see cref="FakeInputHook"/>
+/// so they run on Windows / macOS CI runners without a Linux
+/// station.
 /// </summary>
 public class LinuxHardwareModuleTests
 {
@@ -257,5 +260,3 @@ public class LinuxEscPosReceiptPrinterTests
         }
     }
 }
-
-#endif

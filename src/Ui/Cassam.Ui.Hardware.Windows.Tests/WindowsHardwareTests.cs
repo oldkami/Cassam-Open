@@ -1,18 +1,18 @@
-#if WINDOWS
 using Cassam.Ui.Hardware.Common;
 using Cassam.Ui.Hardware.Windows;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-namespace Cassam.Ui.Tests.Hardware.Windows;
+namespace Cassam.Ui.Hardware.Windows.Tests;
 
 /// <summary>
-/// Contract tests for the Windows HAL surface. The whole file is
-/// gated on <c>#if WINDOWS</c> because the per-platform assembly
-/// only exists on a Windows TFM — on Linux / macOS / Android CI
-/// runners the conditional ProjectReference in
-/// <c>Cassam.Ui.Tests.csproj</c> skips it.
+/// Contract tests for the Windows HAL surface. The whole project
+/// targets <c>net10.0-windows10.0.19041.0</c> so the per-platform
+/// Windows HAL assembly is always available. PR 9.6 moved these
+/// tests out of <c>Cassam.Ui.Tests</c> into this sibling test
+/// project so the cross-platform CI restore does not need to pull
+/// the Windows HAL reference on Linux / macOS / Android runners.
 ///
 /// <para>
 /// What we verify:
@@ -183,4 +183,3 @@ public class WindowsPrinterKickedCashDrawerTests
         }
     }
 }
-#endif

@@ -17,17 +17,18 @@ Phase 2 ships hardware-integrated code (barcode scanners, ESC/POS printers, BT p
 
 ## Required status checks
 
-After the first CI run completes, the following jobs will be available as required checks. Configure **all 7** in branch protection:
+After the first CI run completes, the following jobs will be available as required checks. Configure **all 8** in branch protection:
 
 | Job name | Purpose |
 |---|---|
 | `backend` | Phase 1 backend build + EF migrations + Testcontainers tests (3-OS matrix) |
-| `ui-windows` | Windows HAL build + Windows-targeted UI tests |
-| `ui-linux` | Linux HAL build + UI tests (with libevdev/libx11/libei) |
+| `ui-windows` | Windows HAL build + Windows HAL contract tests (per-platform test project) |
+| `ui-linux` | Linux HAL build + Linux HAL contract tests (per-platform test project) |
 | `ui-macos` | macOS HAL build (maccatalyst TFM) |
 | `ui-android` | Android HAL build (with android workload) |
 | `ui-wasm` | WebAssembly HAL build (with wasm-tools workload) |
 | `migration-drift` | EF migration idempotency check |
+| `ui-tests` | Cassam.Ui.Tests xUnit suite (Mock-based, platform-neutral, ubuntu-latest). Added in PR 9.6 after the test project was split into a platform-neutral test project + per-platform test projects so cross-platform restore no longer drags in Windows / Android / WASM workloads. |
 
 ## Settings to apply (GitHub UI)
 
@@ -42,7 +43,7 @@ Navigate to: **GitHub.com → `<OWNER>/<REPO>` → Settings → Branches → Add
   - ☑ Require review from Code Owners (only after CODEOWNERS file is added)
 - ☑ Require status checks to pass before merging
   - ☑ Require branches to be up to date before merging
-  - **Search and select all 7 checks above**
+  - **Search and select all 8 checks above**
 - ☑ Require conversation resolution before merging
 - ☑ Require signed commits (optional but recommended for compliance)
 - ☑ Require linear history (recommended — keeps `git log --graph` clean)
@@ -67,7 +68,7 @@ gh api \
   --method PUT \
   -H "Accept: application/vnd.github+json" \
   /repos/OWNER/REPO/branches/feature/cassam-modernization/protection \
-  -f required_status_checks='{"strict":true,"contexts":["backend","ui-windows","ui-linux","ui-macos","ui-android","ui-wasm","migration-drift"]}' \
+  -f required_status_checks='{"strict":true,"contexts":["backend","ui-windows","ui-linux","ui-macos","ui-android","ui-wasm","migration-drift","ui-tests"]}' \
   -F enforce_admins=true \
   -F required_linear_history=true \
   -F allow_force_pushes=false \
@@ -86,14 +87,14 @@ gh api /repos/OWNER/REPO/branches/feature/cassam-modernization/protection | jq
 
 Expected output includes:
 - `required_status_checks.strict: true`
-- `required_status_checks.contexts`: 7 entries
+- `required_status_checks.contexts`: 8 entries
 - `enforce_admins.enabled: true`
 - `allow_force_pushes.enabled: false`
 - `allow_deletions.enabled: false`
 
 ## Related
 
-- `.github/workflows/cassam-modernization.yml` — the CI workflow that produces the 7 status checks
+- `.github/workflows/cassam-modernization.yml` — the CI workflow that produces the 8 status checks
 - `README.md` — has the CI status badge that links to the workflow runs
 - Phase 2 design §14.3 — the CI matrix strategy this implements
 

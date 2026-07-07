@@ -25,6 +25,16 @@
     <Project Path="Cassam.Ui.Hardware.Wasm/Cassam.Ui.Hardware.Wasm.csproj" />
   </Folder>
   <Folder Name="/tests/Ui/">
+    <!--
+      PR 9.6 split: Cassam.Ui.Tests is platform-neutral (only
+      references Cassam.Ui.Hardware.Common) so the cross-platform
+      restore does not need to pull in Windows / Android / macOS
+      / Wasm workloads. Per-platform HAL contract tests live in
+      their own projects so each only restores the matching HAL
+      assembly on its native runner.
+    -->
     <Project Path="Cassam.Ui.Tests/Cassam.Ui.Tests.csproj" />
+    <Project Path="Cassam.Ui.Hardware.Windows.Tests/Cassam.Ui.Hardware.Windows.Tests.csproj" />
+    <Project Path="Cassam.Ui.Hardware.Linux.Tests/Cassam.Ui.Hardware.Linux.Tests.csproj" />
   </Folder>
 </Solution>

@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      Per-platform HAL contract tests for Cassam.Ui.Hardware.Linux.
+
+      Why a separate project from Cassam.Ui.Tests:
+        * Cassam.Ui.Tests is now platform-neutral (only references
+          Cassam.Ui.Hardware.Common) so it can be restored + tested
+          on any CI runner without dragging in the Android workload
+          or Windows-only EnableWindowsTargeting flag (PR 9.6).
+        * The Linux HAL surface compiles against plain net10.0
+          (no per-OS TFM, no workload) but it lives in its own
+          assembly; keeping these tests in a sibling test project
+          keeps the scope aligned with the HAL project they
+          exercise and lets the ui-linux CI job run them with
+          the same restore boundary as the HAL build itself.
+
+      Run: `dotnet test src/Ui/Cassam.Ui.Hardware.Linux.Tests/Cassam.Ui.Hardware.Linux.Tests.csproj`
+    -->
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>Cassam.Ui.Hardware.Linux.Tests</RootNamespace>
+    <AssemblyName>Cassam.Ui.Hardware.Linux.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="FluentAssertions" Version="6.12.1" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.1" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Cassam.Ui.Hardware.Common\Cassam.Ui.Hardware.Common.csproj" />
+    <ProjectReference Include="..\Cassam.Ui.Hardware.Linux\Cassam.Ui.Hardware.Linux.csproj" />
+  </ItemGroup>
+
+</Project>

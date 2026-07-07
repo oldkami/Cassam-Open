@@ -13,12 +13,12 @@
 #                        `dotnet ef database update` smoke step that
 #                        validates migration idempotence on a real PG.
 #
-#   2. ui-windows      — Cassam.Ui.Hardware.Windows + Windows-TargetFramework
-#                        subset of Cassam.Ui.Tests.
-#   3. ui-linux        — Cassam.Ui.Hardware.Linux + Linux/macOS HAL sources
-#                        compiled on a Linux runner (no platform-specific
-#                        workload needed; IsMacOS() guards keep macOS P/Invoke
-#                        symbols from resolving).
+#   2. ui-windows      — Cassam.Ui.Hardware.Windows build + the matching
+#                        per-platform contract tests in
+#                        Cassam.Ui.Hardware.Windows.Tests (windows-latest).
+#   3. ui-linux        — Cassam.Ui.Hardware.Linux build + the matching
+#                        per-platform contract tests in
+#                        Cassam.Ui.Hardware.Linux.Tests (ubuntu-latest).
 #   4. ui-macos        — Cassam.Ui.Hardware.MacOS compiled on macos-latest
 #                        so the IOKit / CoreFoundation P/Invoke surfaces
 #                        resolve cleanly.
@@ -30,9 +30,19 @@
 #                        generated; the script MUST be non-empty and the
 #                        EF tooling MUST exit 0 (catches accidental model
 #                        edits without a matching migration).
+#   8. ui-tests        — platform-neutral xUnit suite (Cassam.Ui.Tests) on
+#                        ubuntu-latest. References only
+#                        Cassam.Ui.Hardware.Common (Mocks + interfaces),
+#                        so it restores + tests without any platform-specific
+#                        workload. Cross-platform integration tests with
+#                        REAL HAL implementations are out of CI scope
+#                        (manual QA per platform per design §10 R-UI-10).
+#                        PR 9.6 re-introduces this job after PR 9.5 dropped
+#                        the test steps from the per-platform UI jobs because
+#                        of cross-platform restore failures.
 #
-# Branch protection should require the `backend` + the relevant UI job to
-# pass before merge to `feature/cassam-modernization`.
+# Branch protection should require `backend` + `ui-tests` + the relevant
+# UI job(s) to pass before merge to `feature/cassam-modernization`.
 #
 # Assumed platform: GitHub Actions (Azure DevOps / GitLab CI use different
 # YAML schemas — see design §14.3 for the rationale).
@@ -178,19 +188,36 @@ jobs:
       - name: Install wasm-tools workload (Windows TFM shares WASM transitive deps)
         run: dotnet workload install wasm-tools
 
-      - name: Restore (Windows HAL + Common only — avoids pulling Android workload / macOS symbols)
+      - name: Restore (Windows HAL + Tests + Common — only pulls Windows TFM)
         run: |
           dotnet restore src/Ui/Cassam.Ui.Hardware.Common/Cassam.Ui.Hardware.Common.csproj
           dotnet restore src/Ui/Cassam.Ui.Hardware.Windows/Cassam.Ui.Hardware.Windows.csproj
+          dotnet restore src/Ui/Cassam.Ui.Hardware.Windows.Tests/Cassam.Ui.Hardware.Windows.Tests.csproj
 
       # The Windows HAL csproj itself targets net10.0-windows10.0.19041.0;
       # no -p override needed because the TFM is single-target.
+      # Note: do NOT use --no-build on the test step below — the test
+      # project (.Tests.csproj) is a SEPARATE build artifact that must be
+      # built explicitly. Building only the HAL project leaves the test
+      # .dll unbuilt and the test runner fails with "provided was not found".
       - name: Build Windows HAL
         run: >-
           dotnet build src/Ui/Cassam.Ui.Hardware.Windows/Cassam.Ui.Hardware.Windows.csproj
           --nologo
           --configuration Release
           -p:EnableWindowsTargeting=true
+
+      # Per-platform HAL contract tests live next to the HAL project
+      # (PR 9.6 split). The test project targets net10.0-windows10.0.19041.0
+      # so it only restores + runs on Windows runners — no cross-platform
+      # pollution of the ui-tests job.
+      - name: Run Windows HAL contract tests
+        run: >-
+          dotnet test src/Ui/Cassam.Ui.Hardware.Windows.Tests/Cassam.Ui.Hardware.Windows.Tests.csproj
+          --nologo
+          --configuration Release
+          -p:EnableWindowsTargeting=true
+          --logger "console;verbosity=normal"
 
   # ---------------------------------------------------------------------------
   # Job 3 — UI Linux HAL
@@ -218,16 +245,33 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libevdev-dev libx11-dev libxext-dev libei-dev
 
-      - name: Restore (Linux HAL + Common)
+      - name: Restore (Linux HAL + Tests + Common)
         run: |
           dotnet restore src/Ui/Cassam.Ui.Hardware.Common/Cassam.Ui.Hardware.Common.csproj
           dotnet restore src/Ui/Cassam.Ui.Hardware.Linux/Cassam.Ui.Hardware.Linux.csproj
+          dotnet restore src/Ui/Cassam.Ui.Hardware.Linux.Tests/Cassam.Ui.Hardware.Linux.Tests.csproj
 
       - name: Build Linux HAL
         run: >-
           dotnet build src/Ui/Cassam.Ui.Hardware.Linux/Cassam.Ui.Hardware.Linux.csproj
           --nologo
           --configuration Release
+
+      # Per-platform HAL contract tests live next to the HAL project
+      # (PR 9.6 split). The test project targets plain net10.0 so it
+      # compiles + runs on any Linux runner. FakeInputHook keeps the
+      # evdev / X11 / Wayland paths exercised on CI without real
+      # station hardware.
+      # Note: do NOT use --no-build — the .Tests.csproj is a separate
+      # build artifact that must be built explicitly. The dotnet test
+      # invocation rebuilds the test project (and its HAL dependency)
+      # automatically.
+      - name: Run Linux HAL contract tests
+        run: >-
+          dotnet test src/Ui/Cassam.Ui.Hardware.Linux.Tests/Cassam.Ui.Hardware.Linux.Tests.csproj
+          --nologo
+          --configuration Release
+          --logger "console;verbosity=normal"
 
   # ---------------------------------------------------------------------------
   # Job 4 — UI macOS HAL (compiled on macos-latest for native P/Invoke)
@@ -371,3 +415,58 @@ jobs:
           test -s /tmp/migrations.sql
           grep -Eqi '\b(CREATE|ALTER|DROP)\b' /tmp/migrations.sql
           echo "Migration script generated OK ($(wc -l < /tmp/migrations.sql) lines)."
+
+  # ---------------------------------------------------------------------------
+  # Job 8 — UI xUnit suite (Mock-based, platform-neutral, ubuntu-latest)
+  # ---------------------------------------------------------------------------
+  # Why ubuntu-only:
+  #   * Cassam.Ui.Tests references Cassam.Ui.Hardware.Common ONLY (Mocks +
+  #     interfaces). No platform-specific workload dependencies, so it
+  #     restores + tests cleanly on any host that has the .NET 10 SDK.
+  #   * xUnit tests use Mock implementations of the HAL — they run anywhere
+  #     .NET 10 runs, no hardware required.
+  #   * Cross-platform integration tests with REAL HAL implementations live
+  #     in per-platform test projects (Cassam.Ui.Hardware.Windows.Tests /
+  #     Cassam.Ui.Hardware.Linux.Tests) and run inside the ui-windows /
+  #     ui-linux jobs. Manual QA per platform covers the remaining matrices
+  #     (Android / macOS / WASM) per design §10 R-UI-10.
+  #
+  # PR 9.6 motivation: previously this test project had conditional
+  # ProjectReferences to the Windows + Linux HAL projects and was
+  # multi-targeted net10.0;net10.0-windows10.0.19041.0. Restoring it
+  # transitively pulled Windows HAL on every runner (surfaced as missing
+  # EnableWindowsTargeting on macOS) and Linux HAL on every runner
+  # (which works but bloats the restore graph). The split into a
+  # platform-neutral test project + per-platform test projects
+  # eliminates the transitive restore entirely.
+  ui-tests:
+    name: UI xUnit Suite (Mock-based)
+    runs-on: ubuntu-latest
+    needs: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          cache: true
+          cache-dependency-path: 'src/Ui/**/*.csproj'
+
+      - name: Restore (Cassam.Ui.Tests + Common only — no HAL transitive)
+        run: |
+          dotnet restore src/Ui/Cassam.Ui.Hardware.Common/Cassam.Ui.Hardware.Common.csproj
+          dotnet restore src/Ui/Cassam.Ui.Tests/Cassam.Ui.Tests.csproj
+
+      - name: Build UI tests (net10.0)
+        run: >-
+          dotnet build src/Ui/Cassam.Ui.Tests/Cassam.Ui.Tests.csproj
+          --nologo
+          --configuration Release
+
+      - name: Run UI xUnit suite
+        run: >-
+          dotnet test src/Ui/Cassam.Ui.Tests/Cassam.Ui.Tests.csproj
+          --no-build
+          --nologo
+          --configuration Release
+          --logger "console;verbosity=normal"
