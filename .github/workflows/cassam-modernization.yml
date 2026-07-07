@@ -196,6 +196,10 @@ jobs:
 
       # The Windows HAL csproj itself targets net10.0-windows10.0.19041.0;
       # no -p override needed because the TFM is single-target.
+      # Note: do NOT use --no-build on the test step below — the test
+      # project (.Tests.csproj) is a SEPARATE build artifact that must be
+      # built explicitly. Building only the HAL project leaves the test
+      # .dll unbuilt and the test runner fails with "provided was not found".
       - name: Build Windows HAL
         run: >-
           dotnet build src/Ui/Cassam.Ui.Hardware.Windows/Cassam.Ui.Hardware.Windows.csproj
@@ -210,7 +214,6 @@ jobs:
       - name: Run Windows HAL contract tests
         run: >-
           dotnet test src/Ui/Cassam.Ui.Hardware.Windows.Tests/Cassam.Ui.Hardware.Windows.Tests.csproj
-          --no-build
           --nologo
           --configuration Release
           -p:EnableWindowsTargeting=true
@@ -259,10 +262,13 @@ jobs:
       # compiles + runs on any Linux runner. FakeInputHook keeps the
       # evdev / X11 / Wayland paths exercised on CI without real
       # station hardware.
+      # Note: do NOT use --no-build — the .Tests.csproj is a separate
+      # build artifact that must be built explicitly. The dotnet test
+      # invocation rebuilds the test project (and its HAL dependency)
+      # automatically.
       - name: Run Linux HAL contract tests
         run: >-
           dotnet test src/Ui/Cassam.Ui.Hardware.Linux.Tests/Cassam.Ui.Hardware.Linux.Tests.csproj
-          --no-build
           --nologo
           --configuration Release
           --logger "console;verbosity=normal"
