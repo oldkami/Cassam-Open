@@ -114,23 +114,30 @@ public class MainPageSnapshotTests
     /// find <c>src/Ui/Cassam.Ui/MainPage.xaml</c>. The test DLL
     /// lives in <c>bin/&lt;config&gt;/net10.0/</c> — three levels
     /// up from there is the project root.
+    ///
+    /// <para>
+    /// Resolves cross-platform: on Linux / macOS / Windows the
+    /// walk-up search uses <see cref="Path.Combine"/> + native
+    /// separators, so a hard-coded Windows-only fallback would
+    /// fail on the CI runner. Once found, the path is returned
+    /// as-is; <see cref="File"/> + <see cref="StreamReader"/>
+    /// handle Windows vs POSIX transparently.
+    /// </para>
     /// </summary>
     private static string ResolveMainPageXamlPath()
     {
-        var probes = new[]
-        {
-            Path.Combine(AppContext.BaseDirectory, "MainPage.xaml"),
-        };
-        // Probe immediately next to the test DLL.
-        foreach (var probe in probes)
-        {
-            if (File.Exists(probe)) return probe;
-        }
+        // Probe immediately next to the test DLL. The test
+        // directory is bin/<config>/<tfm>/; MainPage.xaml
+        // does NOT live here in the wild, but a future PR
+        // might add a copy-to-output step so we probe first.
+        var immediate = Path.Combine(AppContext.BaseDirectory, "MainPage.xaml");
+        if (File.Exists(immediate)) return immediate;
 
         // The CI runner puts the test DLL in
-        // src/Ui/Cassam.Ui.Tests/bin/Debug/net10.0/. The
+        // src/Ui/Cassam.Ui.Tests/bin/<config>/<tfm>/. The
         // shared project lives at src/Ui/Cassam.Ui — three
-        // hops up from the test DLL.
+        // hops up from the test DLL. We walk up to six levels
+        // for paranoia (the runner may nest deeper).
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         for (int i = 0; i < 6 && dir is not null; i++, dir = dir.Parent)
         {
@@ -138,9 +145,16 @@ public class MainPageSnapshotTests
             if (File.Exists(candidate)) return candidate;
         }
 
-        // Final fallback (kept conservative — points at the
-        // known-good absolute path so the failure message is
-        // helpful for the reviewer who runs locally).
+        // GitHub Actions puts the checkout at /home/runner/work/<repo>/<repo>.
+        // Probe that layout as a fallback so the failure
+        // message points at the actual path the CI sees.
+        var cwd = Directory.GetCurrentDirectory();
+        var cwdCandidate = Path.Combine(cwd, "src", "Ui", "Cassam.Ui", "MainPage.xaml");
+        if (File.Exists(cwdCandidate)) return cwdCandidate;
+
+        // Final fallback: return the most plausible Windows-style
+        // path so the failure message is helpful for a Windows
+        // developer running locally. CI will fail fast above.
         return @"C:\D\Cassam\src\Ui\Cassam.Ui\MainPage.xaml";
     }
 }

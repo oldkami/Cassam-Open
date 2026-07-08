@@ -127,6 +127,11 @@ public static class CsvReportExporter
         ArgumentNullException.ThrowIfNull(output);
         var encoding = Utf8WithBom;
         await using var writer = new StreamWriter(output, encoding, leaveOpen: true);
+        // Force CRLF — StreamWriter defaults to Environment.NewLine
+        // which is "\n" on Linux/macOS but RFC 4180 mandates
+        // CRLF. Pin NewLine to "\r\n" so every platform emits
+        // the same byte sequence.
+        writer.NewLine = "\r\n";
         await writer.FlushAsync(ct); // ensures BOM
         body(writer);
         await writer.FlushAsync(ct);
