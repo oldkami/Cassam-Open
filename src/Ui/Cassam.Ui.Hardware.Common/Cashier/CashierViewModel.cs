@@ -625,4 +625,57 @@ internal static class ReceiptTextBuilder
         lines.Add("==============================================");
         return string.Join("\n", lines);
     }
+
+    // --------------------------------------------------------------
+    // §17.2 reference hardware benchmark placeholders (PR 10)
+    //
+    // The <5s checkout budget (SCN-UI-02) is measured against two
+    // reference SKUs that the user deferred selecting until after
+    // procurement (design §17.2, items #2 + #10). Until those SKUs
+    // are fixed, every assertion in
+    // CashierViewModelCompleteSaleBenchmarkTests uses placeholder
+    // labels so the test is not over-specified.
+    //
+    // Reference (TBD, see design §17.2): 
+    //   * Windows desktop SKU: generic "Windows reference desktop"
+    //     (e.g. Lenovo ThinkCentre M70q or HP ProDesk 400 G7 — small
+    //     form factor, Intel Core i5-12xxx, 16 GB RAM, NVMe SSD).
+    //   * Android tablet: generic "Android tablet reference"
+    //     (e.g. Samsung Galaxy Tab A9 — 11" LCD, MediaTek Helio
+    //     G99, 4 GB RAM, Android 14).
+    //
+    // Profiling approach (PR 8 placeholder, design §17):
+    //   1. Capture timing at four points: Total-tap receipt (a),
+    //      pole display update (b), printer PrintAsync (c),
+    //      drawer kick (d).
+    //   2. Run `dotnet-trace collect -p <pid> --providers
+    //      Microsoft-DotNETCore-SampleProfiler` while the
+    //      benchmark scenario fires.
+    //   3. Convert to .speedscope.json + inspect the wall-clock
+    //      table to find the dominant frame.
+    //
+    // The contract preserved by this region is that the benchmark
+    // stays cheap and reproducible until the SKUs land; once they
+    // do, the constants below move from "Reference hardware TBD" to
+    // the picked SKU string and the test scenarios gain an
+    // environmental metric.
+    // --------------------------------------------------------------
+}
+
+/// <summary>
+/// Reference-hardware metadata for the <5s checkout benchmark
+/// (SCN-UI-02, design §17.2). Centralised in one place so the
+/// PR 11+ perf work replaces the placeholder with real SKUs
+/// without re-annotating every call site.
+/// </summary>
+public static class ReferenceHardware
+{
+    /// <summary>Windows desktop SKU placeholder.</summary>
+    public const string WindowsDesktop = "Windows reference desktop (TBD per design §17.2)";
+
+    /// <summary>Android tablet SKU placeholder.</summary>
+    public const string AndroidTablet = "Android tablet reference (TBD per design §17.2)";
+
+    /// <summary>Target wall-clock budget (seconds) from "Total" tap to receipt begin (SCN-UI-02).</summary>
+    public const double CheckoutBudgetSeconds = 5.0;
 }

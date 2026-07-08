@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  Reports View (PR 10, T2.11). Renders the three sub-reports
+  with shared export toolbar per design §11.3.
+
+  Uses <code>ItemsRepeater</code> + a grid <code>DataTemplate</code> rather
+  than DataGrid because Uno Platform 6 ships DataGrid as a
+  CommunityToolkit package (not built into the 5-head SDK).
+  Switching to ItemsRepeater keeps the rendering platform-neutral
+  and lets the columns style per head (e.g. sans-serif row
+  hover on desktop, larger touch affordances on Android).
+
+  All interactive controls are <c>MinHeight="44"</c> to satisfy
+  SCN-UI-11 touch-target enforcement (44 dp on Android).
+-->
+<Page x:Class="Cassam.Ui.Reports.ReportsView"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      mc:Ignorable="d"
+      Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+      AutomationProperties.Name="Reportes">
+
+  <Grid Padding="24,16,24,24" RowSpacing="12">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <!-- Title + sub-tabs -->
+    <Grid Grid.Row="0" ColumnSpacing="12">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <TextBlock Grid.Column="0"
+                 Text="Reportes"
+                 FontSize="24"
+                 FontWeight="SemiBold"
+                 VerticalAlignment="Center"
+                 AutomationProperties.AutomationId="ReportsTitle" />
+      <TextBlock Grid.Column="1"
+                 x:Name="ActiveReportTitle"
+                 Text="Ventas del día"
+                 FontSize="14"
+                 Opacity="0.6"
+                 VerticalAlignment="Center"
+                 Margin="12,0,0,0"
+                 AutomationProperties.AutomationId="ReportsActiveTabTitle" />
+      <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+        <Button x:Name="DailySalesTab"
+                Content="Ventas del día"
+                MinHeight="44"
+                Click="OnDailySalesClicked"
+                AutomationProperties.AutomationId="ReportsDailySalesTab" />
+        <Button x:Name="InventoryTab"
+                Content="Inventario"
+                MinHeight="44"
+                Click="OnInventoryClicked"
+                AutomationProperties.AutomationId="ReportsInventoryTab" />
+        <Button x:Name="CashCloseTab"
+                Content="Cierre de caja"
+                MinHeight="44"
+                Click="OnCashCloseClicked"
+                AutomationProperties.AutomationId="ReportsCashCloseTab" />
+      </StackPanel>
+    </Grid>
+
+    <!-- Export toolbar -->
+    <Grid Grid.Row="1" ColumnSpacing="8">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <TextBlock Grid.Column="0" Text="Exportar:" VerticalAlignment="Center" />
+      <Button Grid.Column="1" Content="PDF" MinHeight="44" Click="OnExportPdfClicked" AutomationProperties.AutomationId="ReportsExportPdf" />
+      <Button Grid.Column="2" Content="Excel" MinHeight="44" Click="OnExportExcelClicked" AutomationProperties.AutomationId="ReportsExportExcel" />
+      <Button Grid.Column="3" Content="CSV" MinHeight="44" Click="OnExportCsvClicked" AutomationProperties.AutomationId="ReportsExportCsv" />
+      <Button Grid.Column="5" Content="Refrescar" MinHeight="44" Click="OnRefreshClicked" AutomationProperties.AutomationId="ReportsRefresh" />
+    </Grid>
+
+    <Grid Grid.Row="2">
+      <Grid x:Name="DailySalesContainer" Visibility="Visible">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Grid Grid.Row="0" Padding="8,4" Background="{ThemeResource SystemAccentColorLight3}">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="160" />
+            <ColumnDefinition Width="120" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="120" />
+            <ColumnDefinition Width="100" />
+            <ColumnDefinition Width="120" />
+            <ColumnDefinition Width="100" />
+          </Grid.ColumnDefinitions>
+          <TextBlock Text="Fecha" FontWeight="SemiBold" />
+          <TextBlock Grid.Column="1" Text="Factura" FontWeight="SemiBold" />
+          <TextBlock Grid.Column="2" Text="Cliente" FontWeight="SemiBold" />
+          <TextBlock Grid.Column="3" Text="Subtotal" FontWeight="SemiBold" TextAlignment="Right" />
+          <TextBlock Grid.Column="4" Text="IVA" FontWeight="SemiBold" TextAlignment="Right" />
+          <TextBlock Grid.Column="5" Text="Total" FontWeight="SemiBold" TextAlignment="Right" />
+          <TextBlock Grid.Column="6" Text="Estado" FontWeight="SemiBold" />
+        </Grid>
+        <ScrollViewer Grid.Row="1"
+                       AutomationProperties.AutomationId="ReportsDailySalesScrollViewer"
+                       VerticalScrollBarVisibility="Auto">
+          <ItemsRepeater ItemsSource="{Binding ViewModel.DailySalesRows}"
+                         AutomationProperties.AutomationId="ReportsDailySalesRepeater">
+            <ItemsRepeater.ItemTemplate>
+              <DataTemplate>
+                <Grid Padding="8,4">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="160" />
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="100" />
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="100" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="{Binding Date}" />
+                  <TextBlock Grid.Column="1" Text="{Binding InvoiceNumber}" />
+                  <TextBlock Grid.Column="2" Text="{Binding CustomerName}" />
+                  <TextBlock Grid.Column="3" Text="{Binding Subtotal}" TextAlignment="Right" />
+                  <TextBlock Grid.Column="4" Text="{Binding TaxTotal}" TextAlignment="Right" />
+                  <TextBlock Grid.Column="5" Text="{Binding Total}" TextAlignment="Right" />
+                  <TextBlock Grid.Column="6" Text="{Binding Status}" />
+                </Grid>
+              </DataTemplate>
+            </ItemsRepeater.ItemTemplate>
+          </ItemsRepeater>
+        </ScrollViewer>
+      </Grid>
+
+      <Grid x:Name="InventoryContainer" Visibility="Collapsed">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Grid Grid.Row="0" Padding="8,4" Background="{ThemeResource SystemAccentColorLight3}">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="120" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="60" />
+            <ColumnDefinition Width="120" />
+            <ColumnDefinition Width="80" />
+            <ColumnDefinition Width="80" />
+          </Grid.ColumnDefinitions>
+          <TextBlock Text="SKU" FontWeight="SemiBold" />
+          <TextBlock Grid.Column="1" Text="Nombre" FontWeight="SemiBold" />
+          <TextBlock Grid.Column="2" Text="Cat" FontWeight="SemiBold" />
+          <TextBlock Grid.Column="3" Text="Precio" FontWeight="SemiBold" TextAlignment="Right" />
+          <TextBlock Grid.Column="4" Text="Stock" FontWeight="SemiBold" TextAlignment="Right" />
+          <TextBlock Grid.Column="5" Text="Reorder" FontWeight="SemiBold" TextAlignment="Right" />
+        </Grid>
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+          <ItemsRepeater ItemsSource="{Binding ViewModel.InventoryRows}"
+                         AutomationProperties.AutomationId="ReportsInventoryRepeater">
+            <ItemsRepeater.ItemTemplate>
+              <DataTemplate>
+                <Grid Padding="8,4">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="60" />
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="80" />
+                    <ColumnDefinition Width="80" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="{Binding Sku}" />
+                  <TextBlock Grid.Column="1" Text="{Binding Name}" />
+                  <TextBlock Grid.Column="2" Text="{Binding TaxCategory}" />
+                  <TextBlock Grid.Column="3" Text="{Binding UnitPrice}" TextAlignment="Right" />
+                  <TextBlock Grid.Column="4" Text="{Binding StockQuantity}" TextAlignment="Right" />
+                  <TextBlock Grid.Column="5" Text="{Binding ReorderLevel}" TextAlignment="Right" />
+                </Grid>
+              </DataTemplate>
+            </ItemsRepeater.ItemTemplate>
+          </ItemsRepeater>
+        </ScrollViewer>
+      </Grid>
+
+      <Grid x:Name="CashSessionContainer" Visibility="Collapsed">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Grid Grid.Row="0" Padding="8,4" Background="{ThemeResource SystemAccentColorLight3}">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="160" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="120" />
+            <ColumnDefinition Width="120" />
+            <ColumnDefinition Width="120" />
+            <ColumnDefinition Width="120" />
+            <ColumnDefinition Width="80" />
+            <ColumnDefinition Width="120" />
+          </Grid.ColumnDefinitions>
+          <TextBlock Text="Abierta" FontWeight="SemiBold" />
+          <TextBlock Grid.Column="1" Text="Abierta por" FontWeight="SemiBold" />
+          <TextBlock Grid.Column="2" Text="Apertura" FontWeight="SemiBold" TextAlignment="Right" />
+          <TextBlock Grid.Column="3" Text="Cierre" FontWeight="SemiBold" TextAlignment="Right" />
+          <TextBlock Grid.Column="4" Text="Esperado" FontWeight="SemiBold" TextAlignment="Right" />
+          <TextBlock Grid.Column="5" Text="Variación" FontWeight="SemiBold" TextAlignment="Right" />
+          <TextBlock Grid.Column="6" Text="Ventas" FontWeight="SemiBold" TextAlignment="Right" />
+          <TextBlock Grid.Column="7" Text="IVA 19%" FontWeight="SemiBold" TextAlignment="Right" />
+        </Grid>
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+          <ItemsRepeater ItemsSource="{Binding ViewModel.CashSessionRows}"
+                         AutomationProperties.AutomationId="ReportsCashSessionRepeater">
+            <ItemsRepeater.ItemTemplate>
+              <DataTemplate>
+                <Grid Padding="8,4">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="160" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="80" />
+                    <ColumnDefinition Width="120" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="{Binding OpenedAt}" />
+                  <TextBlock Grid.Column="1" Text="{Binding OpenedByUserName}" />
+                  <TextBlock Grid.Column="2" Text="{Binding OpeningAmount}" TextAlignment="Right" />
+                  <TextBlock Grid.Column="3" Text="{Binding ClosingAmount}" TextAlignment="Right" />
+                  <TextBlock Grid.Column="4" Text="{Binding ExpectedAmount}" TextAlignment="Right" />
+                  <TextBlock Grid.Column="5" Text="{Binding VarianceAmount}" TextAlignment="Right" />
+                  <TextBlock Grid.Column="6" Text="{Binding SaleCount}" TextAlignment="Right" />
+                  <TextBlock Grid.Column="7" Text="{Binding TaxBucket19Iva}" TextAlignment="Right" />
+                </Grid>
+              </DataTemplate>
+            </ItemsRepeater.ItemTemplate>
+          </ItemsRepeater>
+        </ScrollViewer>
+      </Grid>
+    </Grid>
+
+    <!-- Status footer -->
+    <Border Grid.Row="3"
+            Padding="12,6"
+            Background="{ThemeResource SystemControlBackgroundAccentBrush}"
+            Opacity="0.1"
+            CornerRadius="4">
+      <TextBlock x:Name="StatusText"
+                 Text="Listo."
+                 AutomationProperties.AutomationId="ReportsStatusMessage" />
+    </Border>
+  </Grid>
+</Page>

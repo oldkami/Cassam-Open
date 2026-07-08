@@ -2,11 +2,14 @@ using System;
 using System.Collections.Generic;
 using Cassam.Core.Domain.Services;
 using Cassam.Ui.Hardware.Common;
+using Cassam.Ui.Hardware.Common.Accessibility;
 using Cassam.Ui.Hardware.Common.Cashier;
 using Cassam.Ui.Hardware.Common.Manager;
 using Cassam.Ui.Hardware.Common.Mock;
+using Cassam.Ui.Hardware.Common.Reports;
 using Cassam.Ui.Hardware.Common.Stubs;
 using Cassam.Ui.Manager;
+using Cassam.Ui.Reports;
 using Cassam.Ui.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -113,6 +116,27 @@ public partial class App : Application
                 services.AddSingleton<DianStatusPanelView>();
                 services.AddSingleton<TenantAdminView>();
                 services.AddSingleton<CancelTenantDialog>();
+
+                // ---- Reports (PR 10, T2.11) ----
+                // IReportsService stub: InMemoryReportsService
+                // holds the fixture rows that replace the legacy
+                // .rpt data sources. Phase 5 swaps in the EF-backed
+                // implementation. The export pipeline routes PDF
+                // through QuestPdfReportExportPipeline (QuestPDF
+                // wrapped), CSV/Excel/JSON through the
+                // platform-neutral exporters.
+                services.AddSingleton<IReportsService, InMemoryReportsService>();
+                services.AddSingleton<IReportExportPipeline, QuestPdfReportExportPipeline>();
+                services.AddSingleton<ReportsViewModel>();
+                services.AddSingleton<ReportsView>();
+
+                // ---- Accessibility (PR 10, T2.12) ----
+                // IAmbientLightSensor stub: InMemoryAmbientLightSensor
+                // so the manager VM always has a sensor instance
+                // to subscribe to. Phase 3+ replaces with the
+                // per-platform reader (Android BluetoothSensor,
+                // Windows LightSensor, etc).
+                services.AddSingleton<IAmbientLightSensor, InMemoryAmbientLightSensor>();
 
                 // ---- Per-platform HAL (PR 7 — design §6.2) ----
                 // The branch selects the matching AddXxxHardware

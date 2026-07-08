@@ -108,7 +108,11 @@ public sealed partial class ManagerShellView : Page
             ManagerRoute.Products => typeof(ProductManagementView),
             ManagerRoute.Customers => typeof(CustomerManagementView),
             ManagerRoute.CashSessions => typeof(CashSessionManagementView),
-            ManagerRoute.Reports => typeof(ReportsNavigationView),
+            // PR 10 (T2.11): Reports now navigates to the real
+            // ReportsView (DataGrid + QuestPDF + CSV/Excel/JSON
+            // exporters) rather than the placeholder
+            // ReportsNavigationView from PR 10's bootstrap.
+            ManagerRoute.Reports => typeof(Cassam.Ui.Reports.ReportsView),
             ManagerRoute.DianStatus => typeof(DianStatusPanelView),
             ManagerRoute.TenantAdmin => typeof(TenantAdminView),
             _ => typeof(ManagerOverviewView),
